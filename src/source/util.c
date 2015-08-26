@@ -6,7 +6,7 @@
 #include "util.h"
 #include <ncurses.h>
 
-void raise_error(const char *msg, ...) {
+/*void raise_error(const char *msg, ...) {
   va_list(args);
   va_start(args, msg);
   endwin();
@@ -14,11 +14,11 @@ void raise_error(const char *msg, ...) {
   fprintf(stderr, "\n");
   exit(0);
 }
-
+*/
 void custom_log(const char *msg, ...) {
   va_list(args);
   va_start(args, msg);
-  endwin();
+  //endwin();
 
   FILE *fp = fopen("tis.log", "a");
   vfprintf(fp, msg, args);

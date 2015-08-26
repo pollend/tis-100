@@ -1,52 +1,42 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <ncurses.h>
+#include <Python.h>
 
 #include "util.h"
 #include "program.h"
 #include "output.h"
 
+#include "tis.h"
+#include "program.h"
 
-int main(int argc, char **argv) {
-  Program program;
-  Program *p = &program;
+/*static PyObject* tis_100_process(PyObject *self, PyObject *args)
+{
+  PyObject* inputs;
+  PyObject* outputs;
 
-#ifdef RICH_OUTPUT
-  initscr();
-	raw();
-	keypad(stdscr, TRUE);
-	noecho();
-#endif
+  int * layout;
+  int layout_entries;
 
-  program_init(p);
-  program_load_system(p, "./programs/divide.sys");
-  program_load_code(p, "./programs/divide.tis");
+  const char ** code; 
+  int code_entries;
 
-#ifdef RICH_OUTPUT
-  output_program(p);
-  int code = getch();
-  while (code != 'q') {
-    program_tick(p);
-    clear();
-    output_program(p);
-    refresh();
-    code = getch();
-  }
-#else
-  int all_blocked_count = 0;
-  while (all_blocked_count < 5) {
-    int all_blocked = program_tick(p);
-    if (all_blocked) {
-      all_blocked_count++;
-    } else {
-      all_blocked_count = 0;
-    }
-  }
-#endif
 
-#ifdef RICH_OUTPUT
-  endwin();
-#endif
-  program_clean(p);
+  if (!PyArg_ParseTuple(args, "OO(i:)#(s:)#", 
+    &inputs,&outputs,&layout,&layout_entries,
+    &code,&code_entries))
+    return NULL;
+  return NULL;
+}*/
+
+
+
+/*static PyMethodDef TisMethods[] =
+{
+  {"program",py_program_init,METH_VARARGS},
+  {NULL, NULL, 0, NULL}
+};*/
+
+void inittis(void)
+{
+  PyObject*m =  Py_InitModule3("tis", NULL,"program module");
+
+  init_program_module(m);
 }

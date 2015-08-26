@@ -1,6 +1,8 @@
 #ifndef _NODE_H
 #define _NODE_H
 
+#include <Python.h>
+
 #include "constants.h"
 #include "input_code.h"
 
@@ -26,16 +28,7 @@ typedef enum {
   ADDRESS,
 } LocationType;
 
-typedef enum {
-  UP,
-  RIGHT,
-  DOWN,
-  LEFT,
-  NIL,
-  ACC,
-  ANY,
-  LAST
-} LocationDirection;
+typedef enum { UP, RIGHT, DOWN, LEFT, NIL, ACC, ANY, LAST } LocationDirection;
 
 union Location {
   short number;
@@ -52,8 +45,8 @@ typedef struct _Instruction {
 } Instruction;
 
 typedef struct _Node {
-  unsigned visible:1;
-  unsigned blocked:1;
+  PyObject_HEAD unsigned visible : 1;
+  unsigned blocked : 1;
   unsigned char ip;
   unsigned char number;
   unsigned char instruction_count;
@@ -73,7 +66,9 @@ typedef struct _ReadResult {
   short value;
 } ReadResult;
 
-void node_init(Node *n);
+PyObject *node_init();
+//PyObject *py_node_init(PyObject *self, PyObject *args);
+
 void node_clean(Node *n);
 
 void node_parse_code(Node *n, InputCode *ic);

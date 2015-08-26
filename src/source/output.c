@@ -71,7 +71,7 @@ void output_node(const Node *n, int x, int y) {
         printw("OUT");
         break;
       default:
-        raise_error("dunno about %d", i.operation);
+//        raise_error("dunno about %d", i.operation);
     }
     printw("\n");
   }

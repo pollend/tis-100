@@ -1,3 +1,5 @@
+#include <Python.h>
+
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
@@ -6,7 +8,15 @@
 #include "util.h"
 #include "node.h"
 
-void node_init(Node *n) {
+staticforward PyTypeObject node_type;
+
+/*PyObject *py_node_init(PyObject *self, PyObject *args) {
+
+}*/
+
+PyObject *node_init() {
+  Node *n = (Node *)PyObject_NEW(Node, &node_type);
+
   n->instruction_count = 0;
   n->ip = 0;
   n->acc = 0;
@@ -14,7 +24,8 @@ void node_init(Node *n) {
   n->visible = FALSE;
   n->blocked = FALSE;
 
-  n->instructions = (Instruction *) malloc(sizeof(Instruction) * MAX_INSTRUCTIONS);
+  n->instructions =
+      (Instruction *)malloc(sizeof(Instruction) * MAX_INSTRUCTIONS);
 
   n->output_port = NULL;
   n->output_value = 0;
@@ -23,12 +34,12 @@ void node_init(Node *n) {
   n->ports[0] = NULL;
   n->ports[1] = NULL;
   n->ports[2] = NULL;
+
   n->ports[3] = NULL;
+  return (PyObject *)n;
 }
 
-void node_clean(Node *n) {
-  free(n->instructions);
-}
+void node_clean(Node *n) { free(n->instructions); }
 
 Instruction *node_create_instruction(Node *n, Operation op) {
   assert(n->instruction_count < MAX_INSTRUCTIONS);
@@ -37,8 +48,9 @@ Instruction *node_create_instruction(Node *n, Operation op) {
   return i;
 }
 
-static void parse_location(const char *s, union Location *loc, LocationType *type) {
-  if (!s) { raise_error("no source was found"); }
+static void parse_location(const char *s, union Location *loc,
+                           LocationType *type) {
+  //  if (!s) { raise_error("no source was found"); }
 
   if (strcmp(s, "UP") == 0) {
     *type = ADDRESS;
@@ -71,9 +83,9 @@ static void parse_location(const char *s, union Location *loc, LocationType *typ
 }
 
 static void parse_mov(Node *n, const char *s) {
-  const int len = strlen(s+4);
-  char *rem = (char *) malloc(sizeof(char) * (len + 1));
-  strcpy(rem, s+4);
+  const int len = strlen(s + 4);
+  char *rem = (char *)malloc(sizeof(char) * (len + 1));
+  strcpy(rem, s + 4);
 
   Instruction *i = node_create_instruction(n, MOV);
   parse_location(strtok(rem, " ,"), &i->src, &i->src_type);
@@ -83,19 +95,19 @@ static void parse_mov(Node *n, const char *s) {
 }
 
 static void parse_onearg(Node *n, InputCode *ic, const char *s, Operation op) {
-  const int len = strlen(s+4);
-  char *rem = (char *) malloc(sizeof(char) * (len + 1));
-  strcpy(rem, s+4);
+  const int len = strlen(s + 4);
+  char *rem = (char *)malloc(sizeof(char) * (len + 1));
+  strcpy(rem, s + 4);
 
   Instruction *ins = node_create_instruction(n, op);
 
-  switch(op) {
+  switch (op) {
     case JEZ:
     case JMP:
     case JNZ:
     case JGZ:
     case JLZ:
-      for (int i=0; i<ic->label_count; i++) {
+      for (int i = 0; i < ic->label_count; i++) {
         const char *label = ic->labels[i];
         if (strcmp(label, rem) == 0) {
           ins->src_type = NUMBER;
@@ -111,9 +123,8 @@ finally:
 }
 
 void node_parse_code(Node *n, InputCode *ic) {
-
   // First let's find the labels
-  for (int i=0; i< ic->line_count; i++) {
+  for (int i = 0; i < ic->line_count; i++) {
     char *line = ic->lines[i];
 
     // Look for a label
@@ -121,7 +132,7 @@ void node_parse_code(Node *n, InputCode *ic) {
     while (*c != '\0') {
       if (*c == ':') {
         int length = (c - line);
-        char *label = (char *) malloc(sizeof(char) * (length + 1));
+        char *label = (char *)malloc(sizeof(char) * (length + 1));
         strncpy(label, line, length);
         label[length] = '\0';
 
@@ -131,13 +142,15 @@ void node_parse_code(Node *n, InputCode *ic) {
         ic->label_count++;
 
         // Remove the label from the code
-        char *rem = trim_whitespace(c+1);
+        char *rem = trim_whitespace(c + 1);
 
         // We need something to jump to, so NOP for now
         // TODO: compress empty lines and jump to the next instruction
-        if (!strlen(rem)) { rem = "NOP"; }
+        if (!strlen(rem)) {
+          rem = "NOP";
+        }
 
-        char *new_line = (char *) malloc(sizeof(char) * strlen(rem));
+        char *new_line = (char *)malloc(sizeof(char) * strlen(rem));
         strcpy(new_line, rem);
 
         free(line);
@@ -148,7 +161,7 @@ void node_parse_code(Node *n, InputCode *ic) {
     }
   }
 
-  for (int i=0; i< ic->line_count; i++) {
+  for (int i = 0; i < ic->line_count; i++) {
     node_parse_line(n, ic, ic->lines[i]);
   }
 }
@@ -191,7 +204,7 @@ void node_parse_line(Node *n, InputCode *ic, const char *s) {
   } else if (strcmp(ins, "OUT") == 0) {
     node_create_instruction(n, OUT);
   } else {
-    raise_error("Don't understand instruction [%s]", ins);
+    //    raise_error("Don't understand instruction [%s]", ins);
   }
 }
 
@@ -200,11 +213,10 @@ static inline void node_set_ip(Node *n, short new_val) {
   n->ip = new_val;
 }
 
-static inline Node *node_get_input_port(Node *n, int direction)
-{
+static inline Node *node_get_input_port(Node *n, int direction) {
   if (direction == ANY) {
-    LocationDirection dirs[] = {LEFT,RIGHT,UP,DOWN};
-    for(int i=0; i < 4; i++) {
+    LocationDirection dirs[] = {LEFT, RIGHT, UP, DOWN};
+    for (int i = 0; i < 4; i++) {
       Node *port = n->ports[dirs[i]];
       if (port && port->output_port == n) {
         return port;
@@ -218,14 +230,15 @@ static inline Node *node_get_input_port(Node *n, int direction)
   }
 }
 
-static inline Node *node_get_output_port(Node *n, int direction)
-{
+static inline Node *node_get_output_port(Node *n, int direction) {
   if (direction == ANY) {
-    LocationDirection dirs[] = {UP,LEFT,RIGHT,DOWN};
-    for(int i=0; i < 4; i++) {
+    LocationDirection dirs[] = {UP, LEFT, RIGHT, DOWN};
+    for (int i = 0; i < 4; i++) {
       Node *port = n->ports[dirs[i]];
       Instruction *inst = &port->instructions[port->ip];
-      if (port && inst->operation == MOV && inst->src_type == ADDRESS && (inst->src.direction == ANY || port->ports[inst->src.direction] == n) ) {
+      if (port && inst->operation == MOV && inst->src_type == ADDRESS &&
+          (inst->src.direction == ANY ||
+           port->ports[inst->src.direction] == n)) {
         return port;
       }
     }
@@ -241,7 +254,9 @@ ReadResult node_read(Node *n, LocationType type, union Location where) {
   ReadResult res;
   res.blocked = 0;
 
-  if (n->output_port) { return res; }
+  if (n->output_port) {
+    return res;
+  }
 
   if (type == NUMBER) {
     res.value = where.number;
@@ -275,8 +290,9 @@ ReadResult node_read(Node *n, LocationType type, union Location where) {
           res.blocked = 1;
         }
         break;
-      default:
-        raise_error("unhandled direction");
+        //    default:
+
+        //        raise_error("unhandled direction");
     }
   }
 
@@ -285,8 +301,10 @@ ReadResult node_read(Node *n, LocationType type, union Location where) {
 
 int node_write(Node *n, LocationDirection dir, short value) {
   Node *dest;
-  switch(dir) {
-    case ACC: n->acc = value; break;
+  switch (dir) {
+    case ACC:
+      n->acc = value;
+      break;
     case UP:
     case RIGHT:
     case DOWN:
@@ -302,18 +320,18 @@ int node_write(Node *n, LocationDirection dir, short value) {
       return 1;
       break;
     case NIL:
-      raise_error("Can't write to %d", dir);
-    default:
-      raise_error("don't know how to write %d", dir);
+      break;
+      //  return NULL;
+      //  raise_error("Can't write to %d", dir);
+      //    default:
+      //      raise_error("don't know how to write %d", dir);
   }
 
   // not blocked
   return 0;
 }
 
-void node_advance(Node *n) {
-  node_set_ip(n, n->ip+1);
-}
+void node_advance(Node *n) { node_set_ip(n, n->ip + 1); }
 
 void node_tick(Node *n) {
   n->blocked = TRUE;
@@ -324,7 +342,7 @@ void node_tick(Node *n) {
 
   int blocked;
 
-  switch(i->operation) {
+  switch (i->operation) {
     case MOV:
       read = node_read(n, i->src_type, i->src);
       if (read.blocked) return;
@@ -347,8 +365,12 @@ void node_tick(Node *n) {
       if (n->acc > MAX_ACC) n->acc = MAX_ACC;
       if (n->acc < MIN_ACC) n->acc = MIN_ACC;
       break;
-    case JMP: node_set_ip(n, i->src.number); return;
-    case JRO: node_set_ip(n, n->ip + i->src.number); return;
+    case JMP:
+      node_set_ip(n, i->src.number);
+      return;
+    case JRO:
+      node_set_ip(n, n->ip + i->src.number);
+      return;
     case JEZ:
       if (n->acc == 0) {
         node_set_ip(n, i->src.number);
@@ -378,17 +400,38 @@ void node_tick(Node *n) {
       n->bak = n->acc;
       n->acc = tmp;
       break;
-    case SAV: n->bak = n->acc; break;
-    case NEG: n->acc = n->acc * -1; break;
-    case NOP: break;
+    case SAV:
+      n->bak = n->acc;
+      break;
+    case NEG:
+      n->acc = n->acc * -1;
+      break;
+    case NOP:
+      break;
     case OUT:
 #ifndef RICH_OUTPUT
       printf("%d\n", n->acc);
 #endif
       break;
-    default:
-      raise_error("ERROR: DIDN'T HANDLE op\n");
+      //    default:
+      //      raise_error("ERROR: DIDN'T HANDLE op\n");
   }
   n->blocked = FALSE;
   node_advance(n);
 }
+
+static void node_decalloc(PyObject *self) { PyMem_DEL(self); }
+
+/* Method table */
+static PyMethodDef node_method_def[] = {
+    {NULL, NULL},
+};
+
+static PyObject *node_get_attr(PyObject *self, char *attrname) {
+  return Py_FindMethod(node_method_def, self, attrname);
+}
+
+static PyTypeObject node_type = {
+    PyObject_HEAD_INIT(&PyType_Type)0, "node", /* char *tp_name; */
+    sizeof(Node),                              /* int tp_basicsize; */
+    0, (destructor)node_decalloc, 0, (getattrfunc)node_get_attr, 0, 0, 0, 0};
