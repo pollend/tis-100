@@ -14,10 +14,10 @@ typedef struct _Program {
 
 PyObject* program_load_system(PyObject * self, PyObject * args);
 PyObject* program_load_code(PyObject * self, PyObject * args);
+PyObject* create_program_instance();
 
 int program_tick(const Program *p);
 void program_clean(Program *p);
-
 
 void init_program_module(PyObject* module);
 

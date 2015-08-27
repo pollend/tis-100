@@ -14,42 +14,18 @@ staticforward PyTypeObject node_type;
 
 }*/
 
-PyObject *node_init() {
-  Node *n = (Node *)PyObject_NEW(Node, &node_type);
-
-  n->instruction_count = 0;
-  n->ip = 0;
-  n->acc = 0;
-  n->bak = 0;
-  n->visible = FALSE;
-  n->blocked = FALSE;
-
-  n->instructions =
-      (Instruction *)malloc(sizeof(Instruction) * MAX_INSTRUCTIONS);
-
-  n->output_port = NULL;
-  n->output_value = 0;
-  n->last = NULL;
-
-  n->ports[0] = NULL;
-  n->ports[1] = NULL;
-  n->ports[2] = NULL;
-
-  n->ports[3] = NULL;
-  return (PyObject *)n;
-}
 
 void node_clean(Node *n) { free(n->instructions); }
 
 Instruction *node_create_instruction(Node *n, Operation op) {
-  assert(n->instruction_count < MAX_INSTRUCTIONS);
-  Instruction *i = &n->instructions[n->instruction_count++];
-  i->operation = op;
-  return i;
+  //assert(n->instruction_count < MAX_INSTRUCTIONS);
+  //Instruction *i = &n->instructions[n->instruction_count++];
+  //i->operation = op;
+  //return i;
+  return NULL;
 }
 
-static void parse_location(const char *s, union Location *loc,
-                           LocationType *type) {
+static void parse_location(const char *s, union Location *loc,LocationType *type) {
   //  if (!s) { raise_error("no source was found"); }
 
   if (strcmp(s, "UP") == 0) {
@@ -209,7 +185,7 @@ void node_parse_line(Node *n, InputCode *ic, const char *s) {
 }
 
 static inline void node_set_ip(Node *n, short new_val) {
-  if (new_val >= n->instruction_count || new_val < 0) new_val = 0;
+  if (new_val >= PyList_Size(n->instructions) || new_val < 0) new_val = 0;
   n->ip = new_val;
 }
 
@@ -235,7 +211,7 @@ static inline Node *node_get_output_port(Node *n, int direction) {
     LocationDirection dirs[] = {UP, LEFT, RIGHT, DOWN};
     for (int i = 0; i < 4; i++) {
       Node *port = n->ports[dirs[i]];
-      Instruction *inst = &port->instructions[port->ip];
+      Instruction *inst = (Instruction*)PyList_GetItem(port->instructions,n->ip);
       if (port && inst->operation == MOV && inst->src_type == ADDRESS &&
           (inst->src.direction == ANY ||
            port->ports[inst->src.direction] == n)) {
@@ -336,7 +312,7 @@ void node_advance(Node *n) { node_set_ip(n, n->ip + 1); }
 void node_tick(Node *n) {
   n->blocked = TRUE;
 
-  Instruction *i = &n->instructions[n->ip];
+  Instruction *i = (Instruction*)PyList_GetItem(n->instructions,n->ip);
   short tmp;
   ReadResult read;
 
@@ -420,18 +396,228 @@ void node_tick(Node *n) {
   node_advance(n);
 }
 
-static void node_decalloc(PyObject *self) { PyMem_DEL(self); }
 
-/* Method table */
-static PyMethodDef node_method_def[] = {
-    {NULL, NULL},
-};
 
-static PyObject *node_get_attr(PyObject *self, char *attrname) {
-  return Py_FindMethod(node_method_def, self, attrname);
+/*Instructions*/
+
+
+static void instruction_dealloc(PyObject *self)
+{
+   custom_log("started freeing Instruction");
+   self->ob_type->tp_free(self);
+   custom_log("finished freeing Instruction");
+
 }
 
+/* Method table */
+static PyMethodDef instruction_method[] = {
+  {NULL},
+};
+
+static PyMemberDef instruction_members[] = {
+    {NULL}  /* Sentinel */
+};
+
+static int instruction_init(Instruction *self, PyObject *args, PyObject *kwds)
+{
+  PyObject* code;
+  if(PyArg_ParseTuple(args,"s",&code))
+  {
+
+  }
+  return 0;
+}
+
+static PyObject* instruction_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+  Instruction* self;
+  self = (Instruction*)type->tp_alloc(type,0);
+
+  return (PyObject*)self;  
+}
+
+
+static PyTypeObject instruction_type = {
+    PyObject_HEAD_INIT(NULL)
+    0,                                        /*ob_size*/
+    "instruction",                            /*tp_name*/
+    sizeof(Instruction),                      /*tp_basicsize*/
+    0,                                        /*tp_itemsize*/
+    (destructor)instruction_dealloc,         /*tp_dealloc*/
+    0,                                        /*tp_print*/
+    0,                                        /*tp_getattr*/
+    0,                                        /*tp_setattr*/
+    0,                                        /*tp_compare*/
+    0,                                        /*tp_repr*/
+    0,                                        /*tp_as_number*/
+    0,                                        /*tp_as_sequence*/
+    0,                                        /*tp_as_mapping*/
+    0,                                        /*tp_hash */
+    0,                                        /*tp_call*/
+    0,                                        /*tp_str*/
+    0,                                        /*tp_getattro*/
+    0,                                        /*tp_setattro*/
+    0,                                        /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "node objects",                           /*tp_doc */
+    0,                                        /*tp_traverse*/
+    0,                                        /*tp_clear*/
+    0,                                        /*tp_richcompare*/
+    0,                                        /*tp_weaklistoffset*/
+    0,                                        /*tp_iter*/
+    0,                                        /*tp_iternext*/
+    instruction_method,                       /*tp_methods*/
+    instruction_members,                      /*tp_members*/
+    0,                                        /*tp_getset*/
+    0,                                        /*tp_base*/
+    0,                                        /*tp_dict*/
+    0,                                        /*tp_descr_get*/
+    0,                                        /*tp_descr_set*/
+    0,                                        /*tp_dictoffset*/
+    (initproc)instruction_init,               /*tp_init*/
+    0,                                        /*tp_alloc*/
+    instruction_new,                          /*tp_new*/
+};
+
+/*Node*/
+static int node_init(Node *self, PyObject *args, PyObject *kwds)  {
+
+  return 0;
+}
+
+static PyObject* node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+  Node* self;
+  self = (Node*)type->tp_alloc(type,0);
+  if(self != NULL)
+  {
+    self->instructions  = Py_BuildValue("[]");
+    if(self->instructions == NULL)
+    {
+       Py_DECREF(self);
+      return NULL;
+    }
+    self->acc = 0;
+    self->bak= 0;
+    self->ip = 0;
+    self->output_value = 0;
+
+    self->visible = FALSE;
+    self->blocked = FALSE;
+
+    self->output_port = NULL;
+    self->last = NULL;
+
+    self->ports[0] = NULL;
+    self->ports[1] = NULL;
+    self->ports[2] = NULL;
+    self->ports[3] = NULL;
+    
+
+  }
+
+
+  return (PyObject*)self;
+
+}
+
+
+static void node_dealloc(PyObject *self)
+{
+    custom_log("started freeing Node");
+  Py_XDECREF(((Node*)self)->instructions);
+   self->ob_type->tp_free(self);
+   custom_log("finished freeing Node");
+}
+
+/* Method table */
+static PyMethodDef node_method[] = {
+  {NULL},
+};
+
+static PyMemberDef node_members[] = {
+    {NULL}  /* Sentinel */
+};
+
+
+
 static PyTypeObject node_type = {
-    PyObject_HEAD_INIT(&PyType_Type)0, "node", /* char *tp_name; */
-    sizeof(Node),                              /* int tp_basicsize; */
-    0, (destructor)node_decalloc, 0, (getattrfunc)node_get_attr, 0, 0, 0, 0};
+    PyObject_HEAD_INIT(NULL)
+    0,                                        /*ob_size*/
+    "node",                            /*tp_name*/
+    sizeof(Node),                            /*tp_basicsize*/
+    0,                                        /*tp_itemsize*/
+    (destructor)node_dealloc,                /*tp_dealloc*/
+    0,                                        /*tp_print*/
+    0,                                        /*tp_getattr*/
+    0,                                        /*tp_setattr*/
+    0,                                        /*tp_compare*/
+    0,                                        /*tp_repr*/
+    0,                                        /*tp_as_number*/
+    0,                                        /*tp_as_sequence*/
+    0,                                        /*tp_as_mapping*/
+    0,                                        /*tp_hash */
+    0,                                        /*tp_call*/
+    0,                                        /*tp_str*/
+    0,                                        /*tp_getattro*/
+    0,                                        /*tp_setattro*/
+    0,                                        /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "node objects",                        /*tp_doc */
+    0,                                        /*tp_traverse*/
+    0,                                        /*tp_clear*/
+    0,                                        /*tp_richcompare*/
+    0,                                        /*tp_weaklistoffset*/
+    0,                                        /*tp_iter*/
+    0,                                        /*tp_iternext*/
+    node_method,                            /*tp_methods*/
+    node_members,                            /*tp_members*/
+    0,                                        /*tp_getset*/
+    0,                                        /*tp_base*/
+    0,                                        /*tp_dict*/
+    0,                                        /*tp_descr_get*/
+    0,                                        /*tp_descr_set*/
+    0,                                        /*tp_dictoffset*/
+    (initproc)node_init,                     /*tp_init*/
+    0,                                        /*tp_alloc*/
+    node_new,                                /*tp_new*/
+};
+
+
+
+void init_node_module(PyObject* module)
+{
+    if (PyType_Ready(&node_type) < 0)
+    {
+      custom_log("not ready");
+      return;
+    }
+
+   Py_INCREF(&node_type);
+   PyModule_AddObject(module, "Program", (PyObject *)&node_type);
+
+   
+   if (PyType_Ready(&instruction_type) < 0)
+   {
+      custom_log("not ready");
+      return;
+   }
+
+   Py_INCREF(&instruction_type);
+   PyModule_AddObject(module, "Program", (PyObject *)&instruction_type);
+}
+
+
+PyObject* create_instruction_instance()
+{
+
+  PyObject* obj = _PyObject_New(&instruction_type);
+  return PyObject_Init(obj,&instruction_type);
+}
+
+PyObject* create_node_instance()
+{
+    PyObject* obj = _PyObject_New(&node_type);
+  return PyObject_Init(obj,&node_type);
+
+}

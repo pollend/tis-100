@@ -2,6 +2,8 @@
 #define _NODE_H
 
 #include <Python.h>
+#include "structmember.h"
+#include <stdbool.h>
 
 #include "constants.h"
 #include "input_code.h"
@@ -36,6 +38,8 @@ union Location {
 } _Location;
 
 typedef struct _Instruction {
+  PyObject_HEAD 
+  
   Operation operation;
   LocationType src_type;
   union Location src;
@@ -45,12 +49,16 @@ typedef struct _Instruction {
 } Instruction;
 
 typedef struct _Node {
-  PyObject_HEAD unsigned visible : 1;
-  unsigned blocked : 1;
-  unsigned char ip;
-  unsigned char number;
-  unsigned char instruction_count;
-  Instruction *instructions;
+  PyObject_HEAD 
+
+  bool visible;
+  bool blocked;
+
+  unsigned int ip;
+  unsigned int number;
+
+  //unsigned int instruction_count;
+  PyObject *instructions; //list of Instruction
 
   short acc;
   short bak;
@@ -66,8 +74,6 @@ typedef struct _ReadResult {
   short value;
 } ReadResult;
 
-PyObject *node_init();
-//PyObject *py_node_init(PyObject *self, PyObject *args);
 
 void node_clean(Node *n);
 
@@ -79,4 +85,7 @@ int node_write(Node *n, LocationDirection dir, short value);
 void node_advance(Node *n);
 Instruction *node_create_instruction(Node *n, Operation op);
 
+void init_node_module(PyObject* module);
+PyObject* create_instruction_instance();
+PyObject* create_node_instance();
 #endif

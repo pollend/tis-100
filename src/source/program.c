@@ -17,60 +17,9 @@ staticforward PyTypeObject program_type;
 
 
 static Node *create_node(Program *p) {
-  PyObject* node = node_init();
+  PyObject* node = create_node_instance();
   PyList_Append(p->nodes, node);
   return (Node*)node;
-}
-
-static PyObject* program_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-  Program* self;
-  self = (Program *)type->tp_alloc(type, 0);
-  if (self != NULL) {
-    self->nodes =   Py_BuildValue("[]");
-    if( self->nodes == NULL)
-    {
-      Py_DECREF(self);
-      return NULL;
-    }
-
-    self->active_nodes  =   Py_BuildValue("[]");
-    if( self->active_nodes == NULL)
-    {
-      Py_DECREF(self);
-      return NULL;
-    }
-  }
-  return (PyObject*)self;
-}
-
-
-static int  program_init(Program *self, PyObject *args, PyObject *kwds) {
-  custom_log("creating program");
-
-  /*for (int i=0; i<PROGRAM_NODES; i++) {
-    Node *n = create_node(p);
-    n->visible = TRUE;
-    n->number = i;
-  }*/
-
-  // Link all the nodes up
-  /*Node **nodes = p->nodes_by_index;
-  for (int i=0; i<4; i++) {
-    if (i < 3) {
-      nodes[i]->ports[RIGHT] = nodes[i+1];
-      nodes[i+4]->ports[RIGHT] = nodes[i+5];
-      nodes[i+8]->ports[RIGHT] = nodes[i+9];
-      nodes[i+1]->ports[LEFT] = nodes[i];
-      nodes[i+5]->ports[LEFT] = nodes[i+4];
-      nodes[i+9]->ports[LEFT] = nodes[i+8];
-    }
-    nodes[i]->ports[DOWN] = nodes[i+4];
-    nodes[i+4]->ports[DOWN] = nodes[i+8];
-    nodes[i+4]->ports[UP] = nodes[i];
-    nodes[i+8]->ports[UP] = nodes[i+4];
-  }*/
-  return 0;
 }
 
 
@@ -248,11 +197,11 @@ PyObject* program_load_code(PyObject * self, PyObject * args) {
   }
 
   for (int i=0; i<PROGRAM_NODES; i++) {
-    Node *n = NULL;//((Program*)self)->nodes_by_index[i];
+    Node *n = (Node*)create_node_instance();//((Program*)self)->nodes_by_index[i];
     node_parse_code(n, &all_input[n->number]);
     input_code_clean(&all_input[n->number]);
 
-    if (n->instruction_count > 0) {
+    if (PyList_Size(n->instructions) > 0) {
        PyList_Append((PyObject*)((Program*)self)->active_nodes,(PyObject*)n);
     }
   }
@@ -260,6 +209,66 @@ PyObject* program_load_code(PyObject * self, PyObject * args) {
   return NULL;
 }
 
+
+static PyObject* program_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+  Program* self;
+  self = (Program *)type->tp_alloc(type, 0);
+  if (self != NULL) {
+    self->nodes =   Py_BuildValue("[]");
+    if( self->nodes == NULL)
+    {
+      Py_DECREF(self);
+      return NULL;
+    }
+
+    self->active_nodes  =   Py_BuildValue("[]");
+    if( self->active_nodes == NULL)
+    {
+      Py_DECREF(self);
+      return NULL;
+    }
+  }
+  return (PyObject*)self;
+}
+
+
+static int  program_init(Program *self, PyObject *args, PyObject *kwds) {
+  custom_log("creating program");
+
+  for (int i=0; i<PROGRAM_NODES; i++) {
+    Node *n = create_node(self);
+    n->visible = TRUE;
+    n->number = i;
+  }
+  // Link all the nodes up
+  /*for (int i = 0; i < PyList_Size(self->nodes); ++i)
+  {
+    PyList_GetItem(self->nodes,i)->ports[RIGHT] = PyList_GetItem(self->nodes,i+1);
+    PyList_GetItem(self->nodes,i)->ports[RIGHT] = PyList_GetItem(self->nodes,i+1);
+    PyList_GetItem(self->nodes,i)->ports[RIGHT] = PyList_GetItem(self->nodes,i+1);
+    PyList_GetItem(self->nodes,i)->ports[LEFT] = PyList_GetItem(self->nodes,i+1);
+    PyList_GetItem(self->nodes,i)->ports[LEFT] = PyList_GetItem(self->nodes,i+1);
+    PyList_GetItem(self->nodes,i)->ports[LEFT] = PyList_GetItem(self->nodes,i+1); 
+  }
+
+  Node **nodes = p->nodes_by_index;
+  for (int i=0; i<4; i++) {
+    if (i < 3) {
+      nodes[i]->ports[RIGHT] = nodes[i+1];
+      nodes[i+4]->ports[RIGHT] = nodes[i+5];
+      nodes[i+8]->ports[RIGHT] = nodes[i+9];
+      nodes[i+1]->ports[LEFT] = nodes[i];
+      nodes[i+5]->ports[LEFT] = nodes[i+4];
+      nodes[i+9]->ports[LEFT] = nodes[i+8];
+    }
+    nodes[i]->ports[DOWN] = nodes[i+4];
+    nodes[i+4]->ports[DOWN] = nodes[i+8];
+    nodes[i+4]->ports[UP] = nodes[i];
+    nodes[i+8]->ports[UP] = nodes[i+4];
+  }*/
+  return 0;
+}
 
 static void program_decalloc(PyObject *self)
 {
@@ -333,10 +342,16 @@ void init_program_module(PyObject* module)
     if (PyType_Ready(&program_type) < 0)
     {
       custom_log("not ready");
-    return;
+      return;
     }
 
 
    Py_INCREF(&program_type);
    PyModule_AddObject(module, "Program", (PyObject *)&program_type);
+}
+
+PyObject* create_program_instance()
+{
+  PyObject* obj = _PyObject_New(&program_type);
+  return PyObject_Init(obj,&program_type);
 }
