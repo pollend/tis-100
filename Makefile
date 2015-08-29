@@ -5,4 +5,7 @@ install: build
 	$(PYTHON) setup.py install --user
 
 test: install
-	$(PYTHON) $(TSCRIPT)
+	 $(PYTHON) $(TSCRIPT)
+
+test_valgrind: install
+	valgrind  --suppressions=valgrind-python.supp $(PYTHON) $(TSCRIPT) 

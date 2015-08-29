@@ -9,6 +9,7 @@
 #include "input_code.h"
 #include "util.h"
 #include "program.h"
+#include <stdlib.h>
 
 #include "curses.h"
 
@@ -62,21 +63,25 @@ int program_tick(const Program *p) {
   return all_blocked;
 }
 
+
+
 static char *read_line(PyObject* file) {
-  PyObject* pyline = PyFile_GetLine(file,0);
-  char* line= NULL;
-  
-  if(PyErr_ExceptionMatches(PyExc_EOFError))
+  PyObject* pyline = PyFile_GetLine(file,-1);
+
+  PyObject* error = PyErr_Occurred();
+  if(error != NULL)
+  {
+    if(PyErr_GivenExceptionMatches(error,PyExc_EOFError))
+    {
+      PyErr_Clear();
       return NULL;
-
-  if (!PyArg_ParseTuple(pyline, "s", &line)) 
-    return NULL;
-
-  return line;
+    }
+  }
+  char* str = PyString_AsString(pyline);
+  char* output = malloc(strlen(str)* (sizeof(char)+1));
+  strcpy(output,str);
+  return output;
 }
-
-
-
 
 
 static Node *create_input_node(Program *p, PyObject* file) {
@@ -84,19 +89,26 @@ static Node *create_input_node(Program *p, PyObject* file) {
 
   char *line = NULL;
   line = read_line(file);
-  Node *below =NULL;// p->nodes_by_index[atoi(line)];
+  if(line == NULL)return NULL;
+  Node *below = (Node*)PyList_GetItem(p->nodes,atoi(line)-1);// p->nodes_by_index[atoi(line)];
+  free(line);
 
   n->ports[DOWN] = below;
   below->ports[UP] = n;
 
-  line = read_line(file);
-  while (line[0] != '*') {
+  while (TRUE) {
+    line = read_line(file);
+    if(line == NULL)
+      return NULL;
+    if(line[0] != '*')
+      return NULL;
+
     Instruction *i = node_create_instruction(n, MOV);
     i->src_type = NUMBER;
     i->src.number = atoi(line);
     i->dest_type = ADDRESS;
     i->dest.direction = DOWN;
-    line = read_line(file);
+    free(line);
   }
 
   Instruction *i = node_create_instruction(n, JRO);
@@ -110,9 +122,10 @@ static Node *create_output_node(Program *p, PyObject* file) {
   Node *n = create_node(p);
 
 
-  /*char *line = NULL;
+  char *line = NULL;
   line = read_line(file);
-  Node *above =NULL;// p->nodes_by_index[atoi(line)];
+  if(line == NULL)return NULL;
+  Node *above = (Node*)PyList_GetItem(p->nodes,atoi(line)-1);
 
   Instruction *i = node_create_instruction(n, MOV);
   i->src_type = ADDRESS;
@@ -123,23 +136,24 @@ static Node *create_output_node(Program *p, PyObject* file) {
   node_create_instruction(n, OUT);
 
   n->ports[UP] = above;
-  above->ports[DOWN] = n;*/
+  above->ports[DOWN] = n;
 
   return n;
 }
 
-PyObject* program_load_system(PyObject * self, PyObject * args) {
+static PyObject* program_load_system(PyObject * self, PyObject * args) {
+  custom_log("loading system");
   PyObject* file = NULL;
 
-  if (!PyArg_ParseTuple(args, "O",file))
+  if (!PyArg_ParseTuple(args, "O",&file))
    return NULL;
 
-
-  char * line = NULL;
   while (true) {
-    line = read_line(file);
-    if(line == NULL)
-      return NULL;
+    char * line  = read_line(file);
+
+    if(line == NULL){
+      break;
+    }
 
     Node *n = NULL;
     if (strncmp(line, "input-top", 9) == 0) {
@@ -150,15 +164,33 @@ PyObject* program_load_system(PyObject * self, PyObject * args) {
     if (n) {
       PyList_Append((PyObject*)((Program*)self)->active_nodes,(PyObject*)n);
     }
+
+    free(line);
   }
+  custom_log("finished loading system");
+  Py_DECREF(file);
+  Py_RETURN_NONE;
+}
+
+
+static PyObject* program_get_node(PyObject * self, PyObject * args) {
+  int index;
+  if (!PyArg_ParseTuple(args, "i",&index))
+   return NULL;
+
+ PyObject* program = PyList_GetItem(((Program*)self)->nodes,index);
+ Py_XINCREF(program);
+ return program;
 
 }
 
-PyObject* program_load_code(PyObject * self, PyObject * args) {
 
+static PyObject* program_load_code(PyObject * self, PyObject * args) {
+
+  custom_log("loading program");
   PyObject* file = NULL;
 
-  if (!PyArg_ParseTuple(args, "O",file))
+  if (!PyArg_ParseTuple(args, "O",&file))
    return NULL;
 
   InputCode all_input[PROGRAM_NODES];
@@ -166,12 +198,13 @@ PyObject* program_load_code(PyObject * self, PyObject * args) {
     input_code_init(&all_input[i]);
   }
 
-   char * line = NULL;
+   int index = 0;
    while (true) {
 
-    line = read_line(file);
-    if(line == NULL)
+    char * line = read_line(file);
+    if(line == NULL){
       break;
+    }
     // ignore after comment, ignore debug
     char *c = line;
     while (*c != '\0') {
@@ -184,29 +217,30 @@ PyObject* program_load_code(PyObject * self, PyObject * args) {
       c++;
     }
     char *trimmed = trim_whitespace(line);
-
     if (strlen(trimmed) > 0) {
-      int index = 0;
       if (line[0] == '@') {
         index = atoi(trimmed+1);
       } else {
         input_code_addline(&all_input[index], trimmed);
       }
     }
-    return NULL;
+
+    free(line);
   }
 
   for (int i=0; i<PROGRAM_NODES; i++) {
-    Node *n = (Node*)create_node_instance();//((Program*)self)->nodes_by_index[i];
+
+    Node *n = (Node*)PyList_GetItem(((Program*)self)->nodes,i);//((Program*)self)->nodes_by_index[i];
     node_parse_code(n, &all_input[n->number]);
     input_code_clean(&all_input[n->number]);
 
     if (PyList_Size(n->instructions) > 0) {
        PyList_Append((PyObject*)((Program*)self)->active_nodes,(PyObject*)n);
     }
-  }
 
-  return NULL;
+  }
+  custom_log("finished loading program");
+  Py_RETURN_NONE;
 }
 
 
@@ -242,31 +276,20 @@ static int  program_init(Program *self, PyObject *args, PyObject *kwds) {
     n->number = i;
   }
   // Link all the nodes up
-  /*for (int i = 0; i < PyList_Size(self->nodes); ++i)
+  custom_log("linking nodes");
+  int num_nodes = PyList_Size(self->nodes);
+  for (int i = 0; i < num_nodes; ++i)
   {
-    PyList_GetItem(self->nodes,i)->ports[RIGHT] = PyList_GetItem(self->nodes,i+1);
-    PyList_GetItem(self->nodes,i)->ports[RIGHT] = PyList_GetItem(self->nodes,i+1);
-    PyList_GetItem(self->nodes,i)->ports[RIGHT] = PyList_GetItem(self->nodes,i+1);
-    PyList_GetItem(self->nodes,i)->ports[LEFT] = PyList_GetItem(self->nodes,i+1);
-    PyList_GetItem(self->nodes,i)->ports[LEFT] = PyList_GetItem(self->nodes,i+1);
-    PyList_GetItem(self->nodes,i)->ports[LEFT] = PyList_GetItem(self->nodes,i+1); 
-  }
-
-  Node **nodes = p->nodes_by_index;
-  for (int i=0; i<4; i++) {
-    if (i < 3) {
-      nodes[i]->ports[RIGHT] = nodes[i+1];
-      nodes[i+4]->ports[RIGHT] = nodes[i+5];
-      nodes[i+8]->ports[RIGHT] = nodes[i+9];
-      nodes[i+1]->ports[LEFT] = nodes[i];
-      nodes[i+5]->ports[LEFT] = nodes[i+4];
-      nodes[i+9]->ports[LEFT] = nodes[i+8];
+    Node* item = ((Node*)PyList_GET_ITEM(self->nodes,i));
+    if(item != NULL)
+    {
+      item->ports[RIGHT] = (Node*)PyList_GET_ITEM(self->nodes,i+1);
+      item->ports[DOWN] = (Node*)PyList_GET_ITEM(self->nodes,i+4);
+      item->ports[LEFT] = (Node*)PyList_GET_ITEM(self->nodes,i-1);
+      item->ports[UP] = (Node*)PyList_GET_ITEM(self->nodes,i-4);
     }
-    nodes[i]->ports[DOWN] = nodes[i+4];
-    nodes[i+4]->ports[DOWN] = nodes[i+8];
-    nodes[i+4]->ports[UP] = nodes[i];
-    nodes[i+8]->ports[UP] = nodes[i+4];
-  }*/
+  }
+  custom_log("finished linking nodes");
   return 0;
 }
 
@@ -283,12 +306,12 @@ static void program_decalloc(PyObject *self)
 /* Method table */
 static PyMethodDef program_method[] = {
   {"LoadSystem", (PyCFunction)program_load_system, METH_VARARGS,"loads states"},
-  {"LoadCode", (PyCFunction)program_load_code, METH_VARARGS,"lodas code"},
-  {NULL},
+  {"LoadCode", (PyCFunction)program_load_code, METH_VARARGS,"loads code"},
+  {"GetNode",(PyCFunction)program_get_node,METH_VARARGS,"gets a node"},
+  {NULL}
 };
 
 static PyMemberDef program_members[] = {
-    {"nodes", T_OBJECT_EX, offsetof(Program, nodes), 0, "first name"},
     {NULL}  /* Sentinel */
 };
 
@@ -352,6 +375,5 @@ void init_program_module(PyObject* module)
 
 PyObject* create_program_instance()
 {
-  PyObject* obj = _PyObject_New(&program_type);
-  return PyObject_Init(obj,&program_type);
+  return PyObject_CallObject((PyObject *)&program_type,NULL);
 }

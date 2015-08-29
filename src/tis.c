@@ -6,6 +6,7 @@
 
 #include "tis.h"
 #include "program.h"
+#include "node.h"
 
 /*static PyObject* tis_100_process(PyObject *self, PyObject *args)
 {
@@ -37,6 +38,6 @@
 void inittis(void)
 {
   PyObject*m =  Py_InitModule3("tis", NULL,"program module");
-
+init_node_module(m);
   init_program_module(m);
 }

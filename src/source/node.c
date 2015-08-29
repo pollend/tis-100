@@ -19,10 +19,11 @@ void node_clean(Node *n) { free(n->instructions); }
 
 Instruction *node_create_instruction(Node *n, Operation op) {
   //assert(n->instruction_count < MAX_INSTRUCTIONS);
-  //Instruction *i = &n->instructions[n->instruction_count++];
-  //i->operation = op;
-  //return i;
-  return NULL;
+
+  Instruction* i = (Instruction*)create_instruction_instance();
+  i->operation = op;
+  PyList_Append(n->instructions,(PyObject*)i);
+  return i;
 }
 
 static void parse_location(const char *s, union Location *loc,LocationType *type) {
@@ -180,6 +181,7 @@ void node_parse_line(Node *n, InputCode *ic, const char *s) {
   } else if (strcmp(ins, "OUT") == 0) {
     node_create_instruction(n, OUT);
   } else {
+    PyErr_SetString(PyExc_RuntimeError, "Invalid Instruction");
     //    raise_error("Don't understand instruction [%s]", ins);
   }
 }
@@ -404,6 +406,7 @@ void node_tick(Node *n) {
 static void instruction_dealloc(PyObject *self)
 {
    custom_log("started freeing Instruction");
+   Py_XDECREF(((Node*)self)->instructions);
    self->ob_type->tp_free(self);
    custom_log("finished freeing Instruction");
 
@@ -420,8 +423,10 @@ static PyMemberDef instruction_members[] = {
 
 static int instruction_init(Instruction *self, PyObject *args, PyObject *kwds)
 {
-  PyObject* code;
-  if(PyArg_ParseTuple(args,"s",&code))
+  PyObject* operation,source,dest,code;
+   static char *kwlist[] = {"operation", "src", "dest","code", NULL};
+
+  if(PyArg_ParseTupleAndKeywords(args,kwds,"|SSSS",kwlist,&operation,&source,&dest,&code))
   {
 
   }
@@ -434,6 +439,120 @@ static PyObject* instruction_new(PyTypeObject *type, PyObject *args, PyObject *k
   self = (Instruction*)type->tp_alloc(type,0);
 
   return (PyObject*)self;  
+}
+
+
+static char* convert_location_str(LocationType loc_type,union Location location)
+{
+  if(loc_type == NUMBER)
+  {
+
+    char* out = (char*)malloc(sizeof(char)*3+1);
+    if(sprintf(out,"%u",location.number))
+    {
+      return (char*)out;
+    }
+  }
+  else
+  {
+    switch(location.direction)
+    {
+      case UP:
+       return str_dump("UP");
+      case RIGHT:
+       return str_dump("RIGHT");
+      case DOWN:
+       return str_dump("DOWN");
+      case LEFT:
+       return str_dump("LEFT");
+      case NIL:
+       return str_dump("NIL");
+      case ACC:
+       return str_dump("ACC");
+      case ANY:
+       return str_dump("ANY");
+      case LAST:
+       return str_dump("LAST");
+    }
+  }
+
+  return str_dump("");
+}
+
+
+
+static PyObject * instruction_str (PyObject* self) {
+  Instruction* instruction = (Instruction*)self;
+  char* src_str = convert_location_str(instruction->src_type,instruction->src);
+  char* dest_str = convert_location_str(instruction->dest_type,instruction->dest);
+  
+  char* combined = (char*)malloc(2+strlen(src_str)+ strlen(dest_str));
+  strcpy(combined,src_str);
+  strcat(combined, " ");
+  strcat(combined, dest_str);
+
+
+  char* out = NULL;
+
+  switch(instruction->operation)
+  {
+    //CALL <LABEL> <LABEL>
+    case MOV:
+      out = combine_str("MOV ", combined);
+    break;
+
+    //CALL
+    case SAV:
+       out = str_dump("SAV");
+    break;
+    case SWP:
+      out = str_dump("SWP");
+    break;
+    case NOP:
+      out = str_dump("NOP");
+    break;
+    case NEG:
+      out = str_dump("NEG");
+    break;
+
+    //CALL <LABEL>
+    case SUB:
+      out = combine_str("SUB ", dest_str);
+      
+    break;
+    case ADD:
+      out = combine_str("ADD ", dest_str);
+    break;
+    case JEZ:
+      
+      out = combine_str("JEZ ", dest_str);
+    break;
+    case JMP:
+      out = combine_str("JMP ", dest_str);
+    break;
+    case JNZ:
+      out = combine_str("JNZ ", dest_str);
+    break;
+    case JGZ:
+      out = combine_str("JGZ ", dest_str);
+    break;
+    case JLZ:
+      out = combine_str("SUB ", dest_str);
+    break;
+    break;
+    default:
+
+    break;
+  }
+
+  PyObject* output = PyString_FromFormat("%s",out);
+  free(out);
+  free(combined);
+  free(src_str);
+  free(dest_str);
+
+  return output;
+ 
 }
 
 
@@ -454,7 +573,7 @@ static PyTypeObject instruction_type = {
     0,                                        /*tp_as_mapping*/
     0,                                        /*tp_hash */
     0,                                        /*tp_call*/
-    0,                                        /*tp_str*/
+    instruction_str,                                        /*tp_str*/
     0,                                        /*tp_getattro*/
     0,                                        /*tp_setattro*/
     0,                                        /*tp_as_buffer*/
@@ -487,6 +606,7 @@ static int node_init(Node *self, PyObject *args, PyObject *kwds)  {
 
 static PyObject* node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
+  custom_log("creating node");
   Node* self;
   self = (Node*)type->tp_alloc(type,0);
   if(self != NULL)
@@ -515,7 +635,7 @@ static PyObject* node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     
 
   }
-
+  custom_log("finished creating node");
 
   return (PyObject*)self;
 
@@ -524,8 +644,8 @@ static PyObject* node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 static void node_dealloc(PyObject *self)
 {
-    custom_log("started freeing Node");
-  Py_XDECREF(((Node*)self)->instructions);
+   custom_log("started freeing Node");
+   Py_XDECREF(((Node*)self)->instructions);
    self->ob_type->tp_free(self);
    custom_log("finished freeing Node");
 }
@@ -540,6 +660,41 @@ static PyMemberDef node_members[] = {
 };
 
 
+static PyObject * node_str (PyObject* self) {
+  Node* node = (Node*)self;
+
+  int num_instructions = PyList_Size(node->instructions);
+  char* final = NULL;
+  for (int i = 0; i < num_instructions; ++i)
+  {
+
+    PyObject* instruction  =PyList_GET_ITEM(node->instructions,i);
+
+    PyObject* line = instruction_str(instruction);
+    char* output = PyString_AsString(line);
+
+    if(final == NULL)
+    {
+      final = malloc(strlen(output)+1);
+      strcpy(final,output);
+    }
+    else
+    {
+      final = realloc(final, strlen(final) + strlen(output)+2);
+      strcat(final,"\n");
+     strcat(final,output);
+    }
+    
+
+    Py_DECREF(line);
+  }
+
+
+  PyObject* out = PyString_FromFormat("%s",final);
+  free(final);
+  return out;
+ 
+}
 
 static PyTypeObject node_type = {
     PyObject_HEAD_INIT(NULL)
@@ -558,7 +713,7 @@ static PyTypeObject node_type = {
     0,                                        /*tp_as_mapping*/
     0,                                        /*tp_hash */
     0,                                        /*tp_call*/
-    0,                                        /*tp_str*/
+    node_str,                                        /*tp_str*/
     0,                                        /*tp_getattro*/
     0,                                        /*tp_setattro*/
     0,                                        /*tp_as_buffer*/
@@ -594,7 +749,7 @@ void init_node_module(PyObject* module)
     }
 
    Py_INCREF(&node_type);
-   PyModule_AddObject(module, "Program", (PyObject *)&node_type);
+   PyModule_AddObject(module, "Node", (PyObject *)&node_type);
 
    
    if (PyType_Ready(&instruction_type) < 0)
@@ -604,20 +759,16 @@ void init_node_module(PyObject* module)
    }
 
    Py_INCREF(&instruction_type);
-   PyModule_AddObject(module, "Program", (PyObject *)&instruction_type);
+   PyModule_AddObject(module, "Instruction", (PyObject *)&instruction_type);
 }
 
 
 PyObject* create_instruction_instance()
 {
-
-  PyObject* obj = _PyObject_New(&instruction_type);
-  return PyObject_Init(obj,&instruction_type);
+   return PyObject_CallObject((PyObject *)&instruction_type,NULL);
 }
 
 PyObject* create_node_instance()
 {
-    PyObject* obj = _PyObject_New(&node_type);
-  return PyObject_Init(obj,&node_type);
-
+   return  PyObject_CallObject((PyObject *)&node_type,NULL);
 }

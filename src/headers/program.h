@@ -12,8 +12,6 @@ typedef struct _Program {
   PyObject *active_nodes;
 } Program;
 
-PyObject* program_load_system(PyObject * self, PyObject * args);
-PyObject* program_load_code(PyObject * self, PyObject * args);
 PyObject* create_program_instance();
 
 int program_tick(const Program *p);

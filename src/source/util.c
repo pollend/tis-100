@@ -26,6 +26,12 @@ void custom_log(const char *msg, ...) {
   fclose(fp);
 }
 
+char *str_dump (const char *s) {
+    char *d = malloc (strlen (s) + 1);   // Allocate memory
+    if (d != NULL) strcpy (d,s);         // Copy string if okay
+    return d;                            // Return new memory
+}
+
 char *trim_whitespace(char *str)
 {
   char *end;
@@ -46,3 +52,12 @@ char *trim_whitespace(char *str)
   return str;
 }
 
+
+char* combine_str(char* str1,char* str2)
+{
+  char* out = (char*)malloc(2+strlen(str1)+ strlen(str2));
+  strcpy(out,str1);
+  strcat(out, " ");
+  strcat(out, str2);
+  return out;
+}
