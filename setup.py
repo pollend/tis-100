@@ -7,6 +7,7 @@ module1 = Extension('tis',
                     sources = [
                     'src/tis.c',
                     'src/source/program.c',
+                    'src/source/instruction.c',
                     'src/source/node.c',
                     'src/source/util.c',
                     'src/source/input_code.c',
