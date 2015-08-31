@@ -55,9 +55,8 @@ char *trim_whitespace(char *str)
 
 char* combine_str(char* str1,char* str2)
 {
-  char* out = (char*)malloc(2+strlen(str1)+ strlen(str2));
+  char* out = (char*)malloc(1+strlen(str1)+ strlen(str2));
   strcpy(out,str1);
-  strcat(out, " ");
   strcat(out, str2);
   return out;
 }

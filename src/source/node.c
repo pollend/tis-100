@@ -6,186 +6,11 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stddef.h>
 
 #include "util.h"
 
-staticforward PyTypeObject node_type;
 
-/*PyObject *py_node_init(PyObject *self, PyObject *args) {
-
-}*/
-
-
-void node_clean(Node *n) { free(n->instructions); }
-
-Instruction *node_create_instruction(Node *n, Operation op) {
-  //assert(n->instruction_count < MAX_INSTRUCTIONS);
-
-  Instruction* i = (Instruction*)create_instruction_instance();
-  i->operation = op;
-  PyList_Append(n->instructions,(PyObject*)i);
-  return i;
-}
-
-static void parse_location(const char *s, union Location *loc,LocationType *type) {
-  //  if (!s) { raise_error("no source was found"); }
-
-  if (strcmp(s, "UP") == 0) {
-    *type = ADDRESS;
-    (*loc).direction = UP;
-  } else if (strcmp(s, "DOWN") == 0) {
-    *type = ADDRESS;
-    (*loc).direction = DOWN;
-  } else if (strcmp(s, "LEFT") == 0) {
-    *type = ADDRESS;
-    (*loc).direction = LEFT;
-  } else if (strcmp(s, "RIGHT") == 0) {
-    *type = ADDRESS;
-    (*loc).direction = RIGHT;
-  } else if (strcmp(s, "ACC") == 0) {
-    *type = ADDRESS;
-    (*loc).direction = ACC;
-  } else if (strcmp(s, "NIL") == 0) {
-    *type = ADDRESS;
-    (*loc).direction = NIL;
-  } else if (strcmp(s, "ANY") == 0) {
-    *type = ADDRESS;
-    (*loc).direction = ANY;
-  } else if (strcmp(s, "LAST") == 0) {
-    *type = ADDRESS;
-    (*loc).direction = LAST;
-  } else {
-    *type = NUMBER;
-    (*loc).number = atoi(s);
-  }
-}
-
-static void parse_mov(Node *n, const char *s) {
-  const int len = strlen(s + 4);
-  char *rem = (char *)malloc(sizeof(char) * (len + 1));
-  strcpy(rem, s + 4);
-
-  Instruction *i = node_create_instruction(n, MOV);
-  parse_location(strtok(rem, " ,"), &i->src, &i->src_type);
-  parse_location(strtok(NULL, " ,\n"), &i->dest, &i->dest_type);
-
-  free(rem);
-}
-
-static void parse_onearg(Node *n, InputCode *ic, const char *s, Operation op) {
-  const int len = strlen(s + 4);
-  char *rem = (char *)malloc(sizeof(char) * (len + 1));
-  strcpy(rem, s + 4);
-
-  Instruction *ins = node_create_instruction(n, op);
-
-  switch (op) {
-    case JEZ:
-    case JMP:
-    case JNZ:
-    case JGZ:
-    case JLZ:
-      for (int i = 0; i < ic->label_count; i++) {
-        const char *label = ic->labels[i];
-        if (strcmp(label, rem) == 0) {
-          ins->src_type = NUMBER;
-          ins->src.number = ic->label_address[i];
-          goto finally;
-        }
-      }
-    default:
-      parse_location(rem, &ins->src, &ins->src_type);
-  }
-finally:
-  free(rem);
-}
-
-void node_parse_code(Node *n, InputCode *ic) {
-  // First let's find the labels
-  for (int i = 0; i < ic->line_count; i++) {
-    char *line = ic->lines[i];
-
-    // Look for a label
-    char *c = line;
-    while (*c != '\0') {
-      if (*c == ':') {
-        int length = (c - line);
-        char *label = (char *)malloc(sizeof(char) * (length + 1));
-        strncpy(label, line, length);
-        label[length] = '\0';
-
-        int idx = ic->label_count;
-        ic->labels[idx] = label;
-        ic->label_address[idx] = i;
-        ic->label_count++;
-
-        // Remove the label from the code
-        char *rem = trim_whitespace(c + 1);
-
-        // We need something to jump to, so NOP for now
-        // TODO: compress empty lines and jump to the next instruction
-        if (!strlen(rem)) {
-          rem = "NOP";
-        }
-
-        char *new_line = (char *)malloc(sizeof(char) * strlen(rem));
-        strcpy(new_line, rem);
-
-        free(line);
-        line = new_line;
-        ic->lines[i] = new_line;
-      }
-      c++;
-    }
-  }
-
-  for (int i = 0; i < ic->line_count; i++) {
-    node_parse_line(n, ic, ic->lines[i]);
-  }
-}
-
-void node_parse_line(Node *n, InputCode *ic, const char *s) {
-  assert(n);
-  assert(s);
-  assert(strlen(s) > 2);
-
-  char ins[4];
-  strncpy(ins, s, 3);
-  ins[3] = '\0';
-
-  if (strcmp(ins, "MOV") == 0) {
-    parse_mov(n, s);
-  } else if (strcmp(ins, "SUB") == 0) {
-    parse_onearg(n, ic, s, SUB);
-  } else if (strcmp(ins, "ADD") == 0) {
-    parse_onearg(n, ic, s, ADD);
-  } else if (strcmp(ins, "JEZ") == 0) {
-    parse_onearg(n, ic, s, JEZ);
-  } else if (strcmp(ins, "JMP") == 0) {
-    parse_onearg(n, ic, s, JMP);
-  } else if (strcmp(ins, "JNZ") == 0) {
-    parse_onearg(n, ic, s, JNZ);
-  } else if (strcmp(ins, "JGZ") == 0) {
-    parse_onearg(n, ic, s, JGZ);
-  } else if (strcmp(ins, "JLZ") == 0) {
-    parse_onearg(n, ic, s, JLZ);
-  } else if (strcmp(ins, "JRO") == 0) {
-    parse_onearg(n, ic, s, JRO);
-  } else if (strcmp(ins, "SAV") == 0) {
-    node_create_instruction(n, SAV);
-  } else if (strcmp(ins, "SWP") == 0) {
-    node_create_instruction(n, SWP);
-  } else if (strcmp(ins, "NOP") == 0) {
-    node_create_instruction(n, NOP);
-  } else if (strcmp(ins, "NEG") == 0) {
-    node_create_instruction(n, NEG);
-  } else if (strcmp(ins, "OUT") == 0) {
-    node_create_instruction(n, OUT);
-  } else {
-    PyErr_SetString(PyExc_RuntimeError, "Invalid Instruction");
-    //    raise_error("Don't understand instruction [%s]", ins);
-  }
-}
 
 static inline void node_set_ip(Node *n, short new_val) {
   if (new_val >= PyList_Size(n->instructions) || new_val < 0) new_val = 0;
@@ -215,9 +40,9 @@ static inline Node *node_get_output_port(Node *n, int direction) {
     for (int i = 0; i < 4; i++) {
       Node *port = n->ports[dirs[i]];
       Instruction *inst = (Instruction*)PyList_GetItem(port->instructions,n->ip);
-      if (port && inst->operation == MOV && inst->src_type == ADDRESS &&
-          (inst->src.direction == ANY ||
-           port->ports[inst->src.direction] == n)) {
+      if (port && inst->operation == MOV && inst->first_type == ADDRESS &&
+          (inst->first.direction == ANY ||
+           port->ports[inst->first.direction] == n)) {
         return port;
       }
     }
@@ -229,7 +54,7 @@ static inline Node *node_get_output_port(Node *n, int direction) {
   }
 }
 
-ReadResult node_read(Node *n, LocationType type, union Location where) {
+ReadResult node_read(Node *n, FieldType type, union Field where) {
   ReadResult res;
   res.blocked = 0;
 
@@ -269,14 +94,69 @@ ReadResult node_read(Node *n, LocationType type, union Location where) {
           res.blocked = 1;
         }
         break;
-        //    default:
-
+            //default:
         //        raise_error("unhandled direction");
     }
   }
 
   return res;
 }
+
+static inline Instruction* create_instruction(char* line)
+{
+  Instruction* instance = (Instruction*)create_instruction_instance();
+  parse_line(instance,line);
+  return instance;
+}
+
+void append_instruction(Node *n,Instruction* instruction)
+{
+  PyList_Append((PyObject*)n->instructions,(PyObject*)instruction);
+}
+
+void node_parse(Node* node,char* input)
+{
+  char* data = strdup(input);
+  char* line;
+
+  while((line = strsep(&data,"\n")) != NULL)
+  {
+    char* c = line;
+
+    while (*c != '\0') { 
+        if (*c == '#') {
+          break;
+        } else if (*c == '!') {
+          c++;
+          PyList_Append((PyObject*)node->instructions,(PyObject*)create_instruction(c));
+          break;
+        }
+        else if(*c == ':')
+        {
+         char* inst_one = malloc((c-line) +2);
+         char* inst_two = malloc(strlen(c) +1);
+         
+         inst_one = memcpy(inst_one,line,(c-line) +2);
+         inst_one[(c-line) +2] = '\0';
+
+         inst_two = memcpy(inst_two,line,strlen(c) +1);
+
+         PyList_Append((PyObject*)node->instructions, (PyObject*)create_instruction(inst_one));
+         PyList_Append((PyObject*)node->instructions, (PyObject*)create_instruction(inst_two));
+         free(inst_one);
+         free(inst_two);
+
+         break;
+
+        }
+        c++;
+      }
+  }
+  free(data);
+ 
+}
+
+
 
 int node_write(Node *n, LocationDirection dir, short value) {
   Node *dest;
@@ -322,14 +202,15 @@ void node_tick(Node *n) {
   int blocked;
 
   switch (i->operation) {
+    
     case MOV:
-      read = node_read(n, i->src_type, i->src);
+      read = node_read(n, i->first_type, i->first);
       if (read.blocked) return;
-      blocked = node_write(n, i->dest.direction, read.value);
+      blocked = node_write(n, i->second.direction, read.value);
       if (blocked) return;
       break;
     case ADD:
-      read = node_read(n, i->src_type, i->src);
+      read = node_read(n, i->first_type, i->first);
       if (read.blocked) return;
 
       n->acc += read.value;
@@ -337,7 +218,7 @@ void node_tick(Node *n) {
       if (n->acc < MIN_ACC) n->acc = MIN_ACC;
       break;
     case SUB:
-      read = node_read(n, i->src_type, i->src);
+      read = node_read(n, i->first_type, i->first);
       if (read.blocked) return;
 
       n->acc -= read.value;
@@ -345,32 +226,32 @@ void node_tick(Node *n) {
       if (n->acc < MIN_ACC) n->acc = MIN_ACC;
       break;
     case JMP:
-      node_set_ip(n, i->src.number);
+      node_set_ip(n, i->first.number);
       return;
     case JRO:
-      node_set_ip(n, n->ip + i->src.number);
+      node_set_ip(n, n->ip + i->first.number);
       return;
     case JEZ:
       if (n->acc == 0) {
-        node_set_ip(n, i->src.number);
+        node_set_ip(n, i->first.number);
         return;
       }
       break;
     case JGZ:
       if (n->acc > 0) {
-        node_set_ip(n, i->src.number);
+        node_set_ip(n, i->first.number);
         return;
       }
       break;
     case JLZ:
       if (n->acc < 0) {
-        node_set_ip(n, i->src.number);
+        node_set_ip(n, i->first.number);
         return;
       }
       break;
     case JNZ:
       if (n->acc != 0) {
-        node_set_ip(n, i->src.number);
+        node_set_ip(n, i->first.number);
         return;
       }
       break;
@@ -388,6 +269,8 @@ void node_tick(Node *n) {
     case NOP:
       break;
     case OUT:
+    case NONE:
+    case JMP_FLAG:
 #ifndef RICH_OUTPUT
       printf("%d\n", n->acc);
 #endif
@@ -399,14 +282,42 @@ void node_tick(Node *n) {
   node_advance(n);
 }
 
+void append_node(LocationDirection direction, Node* from, Node* to)
+{
+  switch(direction)
+  {
+    case UP:
+      from->ports[UP] = to;
+      to->ports[DOWN] = from;
+    break;
+    case RIGHT:
+     from->ports[RIGHT] = to;
+      to->ports[LEFT] = from;
+    break;
+    case DOWN:
+     from->ports[DOWN] = to;
+      to->ports[UP] = from;
+    break;
+    case LEFT:
+     from->ports[LEFT] = to;
+      to->ports[RIGHT] = from;
+    break;
+    default:
+    break;
+  }
+
+}
+
 
 /*Node*/
-static int node_init(Node *self, PyObject *args, PyObject *kwds)  {
-
+static int py_node_init(Node *self, PyObject *args, PyObject *kwds)  {
   return 0;
 }
 
-static PyObject* node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+
+
+
+static PyObject* py_node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
   custom_log("creating node");
   Node* self;
@@ -444,7 +355,20 @@ static PyObject* node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
-static void node_dealloc(PyObject *self)
+
+static PyObject* py_node_parse(PyObject* self,PyObject* args)
+{
+  char* input = NULL;
+  if(!PyArg_ParseTuple(args,"s",&input))
+    return NULL;
+
+  node_parse((Node*)self,input);
+
+  Py_RETURN_NONE;
+}
+
+
+static void py_node_dealloc(PyObject *self)
 {
    custom_log("started freeing Node");
    Py_XDECREF(((Node*)self)->instructions);
@@ -452,17 +376,9 @@ static void node_dealloc(PyObject *self)
    custom_log("finished freeing Node");
 }
 
-/* Method table */
-static PyMethodDef node_method[] = {
-  {NULL},
-};
-
-static PyMemberDef node_members[] = {
-    {NULL}  /* Sentinel */
-};
 
 
-static PyObject * node_str (PyObject* self) {
+static PyObject * py_node_str (PyObject* self) {
   Node* node = (Node*)self;
 
   int num_instructions = PyList_Size(node->instructions);
@@ -495,13 +411,23 @@ static PyObject * node_str (PyObject* self) {
  
 }
 
+/* Method table */
+static PyMethodDef py_node_method[] = {
+  {"Parse", (PyCFunction)py_node_parse, METH_VARARGS,"Parse Code"},
+  {NULL},
+};
+
+static PyMemberDef py_node_members[] = {
+    {NULL}  /* Sentinel */
+};
+
 static PyTypeObject node_type = {
     PyObject_HEAD_INIT(NULL)
     0,                                        /*ob_size*/
     "node",                            /*tp_name*/
     sizeof(Node),                            /*tp_basicsize*/
     0,                                        /*tp_itemsize*/
-    (destructor)node_dealloc,                /*tp_dealloc*/
+    (destructor)py_node_dealloc,                /*tp_dealloc*/
     0,                                        /*tp_print*/
     0,                                        /*tp_getattr*/
     0,                                        /*tp_setattr*/
@@ -512,7 +438,7 @@ static PyTypeObject node_type = {
     0,                                        /*tp_as_mapping*/
     0,                                        /*tp_hash */
     0,                                        /*tp_call*/
-    node_str,                                        /*tp_str*/
+    py_node_str,                                        /*tp_str*/
     0,                                        /*tp_getattro*/
     0,                                        /*tp_setattro*/
     0,                                        /*tp_as_buffer*/
@@ -524,17 +450,17 @@ static PyTypeObject node_type = {
     0,                                        /*tp_weaklistoffset*/
     0,                                        /*tp_iter*/
     0,                                        /*tp_iternext*/
-    node_method,                            /*tp_methods*/
-    node_members,                            /*tp_members*/
+    py_node_method,                            /*tp_methods*/
+    py_node_members,                            /*tp_members*/
     0,                                        /*tp_getset*/
     0,                                        /*tp_base*/
     0,                                        /*tp_dict*/
     0,                                        /*tp_descr_get*/
     0,                                        /*tp_descr_set*/
     0,                                        /*tp_dictoffset*/
-    (initproc)node_init,                     /*tp_init*/
+    (initproc)py_node_init,                     /*tp_init*/
     0,                                        /*tp_alloc*/
-    node_new,                                /*tp_new*/
+    py_node_new,                                /*tp_new*/
 };
 
 

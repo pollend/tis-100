@@ -14,7 +14,6 @@ typedef struct _Program {
 
 PyObject* create_program_instance();
 
-int program_tick(const Program *p);
 void program_clean(Program *p);
 
 void init_program_module(PyObject* module);

@@ -9,6 +9,7 @@
 #include "constants.h"
 #include "input_code.h"
 
+
 typedef struct _Node {
   PyObject_HEAD 
 
@@ -34,18 +35,17 @@ typedef struct _ReadResult {
   short value;
 } ReadResult;
 
-
-void node_clean(Node *n);
-
-void node_parse_code(Node *n, InputCode *ic);
-void node_parse_line(Node *n, InputCode *ic, const char *line);
 void node_tick(Node *n);
-ReadResult node_read(Node *n, LocationType lt, union Location where);
+
 int node_write(Node *n, LocationDirection dir, short value);
 void node_advance(Node *n);
-Instruction *node_create_instruction(Node *n, Operation op);
+
+void node_parse(Node* node,char* input);
+
+void append_node(LocationDirection direction, Node* from, Node* to);
+void append_instruction(Node *n,Instruction* instruction);
 
 void init_node_module(PyObject* module);
-PyObject* create_instruction_instance();
 PyObject* create_node_instance();
+
 #endif

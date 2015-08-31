@@ -16,7 +16,7 @@ NodeList * node_list_append(NodeList *list, Node *n) {
   return list;
 }
 
-void node_list_clean(NodeList *list, int free_nodes) {
+/*void node_list_clean(NodeList *list, int free_nodes) {
   while (list) {
     if (free_nodes) {
       node_clean(list->node);
@@ -27,4 +27,4 @@ void node_list_clean(NodeList *list, int free_nodes) {
     list = list->next;
     free(ref);
   }
-}
+}*/
