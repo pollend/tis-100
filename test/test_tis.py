@@ -16,9 +16,9 @@ print "closed divide.tis"
 
 count = 0
 
-print str(program.GetNode(0))
+'''print str(program.GetNode(0))
 
 print "starting progam"
 while program.Tick():
  pass
-print "finished program"
+print "finished program"'''

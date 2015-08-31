@@ -2,6 +2,9 @@
 #include "instruction.h"
 #include "util.h"
 
+#include <stddef.h>
+#include <string.h>
+
 
 /*Instruction to string*/
 static char* convert_location_str(FieldType loc_type,union Field location)
@@ -202,21 +205,21 @@ static Operation parse_operation(const char *input)
 
 bool parse_line(Instruction* instruction, char* input)
 {
-  char* line = str_dump(input);
-  char* ptr;
-  char* lable_one;
-  char* label_two;
+  char* line = strdup(input);
+  char* ptr = line;
 
-  char* operator = strtok_r(line," ",&ptr);
+  char* operator =  strsep(&ptr," ");
   Operation op = parse_operation(operator);
   switch(op)
   {
     case NONE:
-      free(line);
-      return false;
-
+     // free(line);
+     // return false;
+    break;
 
     case JMP_FLAG:
+     instruction->operation = op;
+
     break;
 
     case SAV:
@@ -236,19 +239,15 @@ bool parse_line(Instruction* instruction, char* input)
     case JLZ:
     case JRO:
      instruction->operation = op;
-     lable_one = strtok_r(line," ",&ptr);
-
-     parse_field(lable_one, &instruction->first,&instruction->first_type);
+     parse_field(strsep(&ptr," "), &instruction->first,&instruction->first_type);
     break;
     
     
     case MOV:
      instruction->operation = op;
-     lable_one = strtok_r(line," ",&ptr);
-     label_two = strtok_r(line," ",&ptr);
 
-      parse_field(lable_one, &instruction->first,&instruction->first_type);
-      parse_field(label_two, &instruction->second,&instruction->second_type);
+      parse_field(strsep(&ptr," "), &instruction->first,&instruction->first_type);
+      parse_field(strsep(&ptr," "), &instruction->second,&instruction->second_type);
     break;
     
   };

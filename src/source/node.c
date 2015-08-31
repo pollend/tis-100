@@ -104,8 +104,9 @@ ReadResult node_read(Node *n, FieldType type, union Field where) {
 
 static inline Instruction* create_instruction(char* line)
 {
+
   Instruction* instance = (Instruction*)create_instruction_instance();
-  parse_line(instance,line);
+  parse_line(instance,trim_whitespace(line));
   return instance;
 }
 
@@ -116,43 +117,49 @@ void append_instruction(Node *n,Instruction* instruction)
 
 void node_parse(Node* node,char* input)
 {
-  char* data = strdup(input);
+  char* block = strdup(input);
+  char* block_copy = block;
   char* line;
 
-  while((line = strsep(&data,"\n")) != NULL)
+  while((line = strsep(&block,"\n")) != NULL)
   {
-    char* c = line;
+      char* c = line;
+      while (TRUE) { 
+          if (*c == '#') {
+            break;
+          } else if (*c == '!') {
+            c++;
+            break;
+          }
+          else if(*c == ':')
+          {
 
-    while (*c != '\0') { 
-        if (*c == '#') {
-          break;
-        } else if (*c == '!') {
+           char* inst_one = malloc((c-line) +2);
+           char* inst_two = malloc(strlen(c) +1);
+           
+           inst_one = memcpy(inst_one,line,(c-line) +2);
+           inst_one[(c-line) +2] = '\0';
+
+           inst_two = memcpy(inst_two,c+1,strlen(c));
+           
+           PyList_Append((PyObject*)node->instructions, (PyObject*)create_instruction(inst_one));
+           PyList_Append((PyObject*)node->instructions, (PyObject*)create_instruction(inst_two));
+           free(inst_one);
+           free(inst_two);
+           c = NULL;
+           break;
+
+          }
+          else if(*c == '\0')
+          {
+            PyList_Append((PyObject*)node->instructions,(PyObject*)create_instruction(line));
+            break;
+          }
           c++;
-          PyList_Append((PyObject*)node->instructions,(PyObject*)create_instruction(c));
-          break;
-        }
-        else if(*c == ':')
-        {
-         char* inst_one = malloc((c-line) +2);
-         char* inst_two = malloc(strlen(c) +1);
-         
-         inst_one = memcpy(inst_one,line,(c-line) +2);
-         inst_one[(c-line) +2] = '\0';
-
-         inst_two = memcpy(inst_two,line,strlen(c) +1);
-
-         PyList_Append((PyObject*)node->instructions, (PyObject*)create_instruction(inst_one));
-         PyList_Append((PyObject*)node->instructions, (PyObject*)create_instruction(inst_two));
-         free(inst_one);
-         free(inst_two);
-
-         break;
-
-        }
-        c++;
       }
+      
   }
-  free(data);
+  free(block_copy);
  
 }
 
