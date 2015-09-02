@@ -11,8 +11,6 @@
 #include "program.h"
 #include <stdlib.h>
 
-#include "curses.h"
-
 
 staticforward PyTypeObject program_type;
 

@@ -18,30 +18,35 @@ static char* convert_location_str(FieldType loc_type,union Field location)
       return (char*)out;
     }
   }
+  else if(loc_type == NAME)
+  {
+    printf("testing:`%s\n",location.name_field.name);
+    return strdup(location.name_field.name);
+  }  
   else
   {
     switch(location.direction)
     {
       case UP:
-       return str_dump("UP");
+       return strdup("UP");
       case RIGHT:
-       return str_dump("RIGHT");
+       return strdup("RIGHT");
       case DOWN:
-       return str_dump("DOWN");
+       return strdup("DOWN");
       case LEFT:
-       return str_dump("LEFT");
+       return strdup("LEFT");
       case NIL:
-       return str_dump("NIL");
+       return strdup("NIL");
       case ACC:
-       return str_dump("ACC");
+       return strdup("ACC");
       case ANY:
-       return str_dump("ANY");
+       return strdup("ANY");
       case LAST:
-       return str_dump("LAST");
+       return strdup("LAST");
     }
   }
 
-  return str_dump("");
+  return strdup("");
 }
 
 
@@ -49,15 +54,13 @@ char* convert_instruction_str(Instruction* instruction)
 {
   char* src_str = convert_location_str(instruction->first_type,instruction->first);
   char* dest_str = convert_location_str(instruction->second_type,instruction->second);
-  
+
   char* combined = (char*)malloc(2+strlen(src_str)+ strlen(dest_str));
   strcpy(combined,src_str);
   strcat(combined, " ");
   strcat(combined, dest_str);
 
-
   char* out = NULL;
-
   switch(instruction->operation)
   {
     //CALL <LABEL> <LABEL>
@@ -67,28 +70,26 @@ char* convert_instruction_str(Instruction* instruction)
 
     //CALL
     case SAV:
-       out = str_dump("SAV");
+       out = strdup("SAV");
     break;
     case SWP:
-      out = str_dump("SWP");
+      out = strdup("SWP");
     break;
     case NOP:
-      out = str_dump("NOP");
+      out = strdup("NOP");
     break;
     case NEG:
-      out = str_dump("NEG");
+      out = strdup("NEG");
     break;
 
     //CALL <LABEL>
     case SUB:
-      out = combine_str("SUB ", dest_str);
-      
+      out = combine_str("SUB ", dest_str);      
     break;
     case ADD:
       out = combine_str("ADD ", dest_str);
     break;
-    case JEZ:
-      
+    case JEZ:    
       out = combine_str("JEZ ", dest_str);
     break;
     case JMP:
@@ -103,15 +104,18 @@ char* convert_instruction_str(Instruction* instruction)
     case JLZ:
       out = combine_str("SUB ", dest_str);
     break;
+    case JMP_FLAG:
+    out = strdup(src_str);
     break;
     default:
-
+      out = strdup("");
     break;
   }
 
   free(combined);
   free(src_str);
   free(dest_str);
+  printf("%s\n",out );
   return out;
 }
 
@@ -161,7 +165,7 @@ static void parse_field(char *s, union Field *field,FieldType *type) {
     {
 
       *type = NAME;
-      (*field).name_field.name = str_dump(s);
+      (*field).name_field.name = strdup(s);
       (*field).name_field.ip = 0;
     }
   }
@@ -219,7 +223,7 @@ bool parse_line(Instruction* instruction, char* input)
 
     case JMP_FLAG:
      instruction->operation = op;
-
+     parse_field(operator,&instruction->first,&instruction->first_type);
     break;
 
     case SAV:

@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "util.h"
-#include <ncurses.h>
 
 /*void raise_error(const char *msg, ...) {
   va_list(args);
@@ -26,11 +25,6 @@ void custom_log(const char *msg, ...) {
   fclose(fp);
 }
 
-char *str_dump (const char *s) {
-    char *d = malloc (strlen (s) + 1);   // Allocate memory
-    if (d != NULL) strcpy (d,s);         // Copy string if okay
-    return d;                            // Return new memory
-}
 
 char *trim_whitespace(char *str)
 {
