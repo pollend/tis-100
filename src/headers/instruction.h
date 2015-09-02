@@ -28,25 +28,28 @@ typedef enum {
 } Operation;
 
 typedef enum {
-  NUMBER,
   ADDRESS,
   NAME
 } FieldType;
 
-typedef enum { UP, RIGHT, DOWN, LEFT, NIL, ACC, ANY, LAST } LocationDirection;
+typedef enum { UP, RIGHT, DOWN, LEFT, NIL, ACC, ANY, LAST ,NUMBER} LocationDirection;
 
 typedef struct _Name
 {
   char* name;
   int ip;
-
 }Name;
 
-union Field {
+typedef struct  _Address
+{
   short number;
   LocationDirection direction;
-  Name name_field;
-} _Field;
+}Address;
+
+typedef union _Field {
+  Address address; 
+  Name name;
+} Field;
 
 
 
@@ -55,11 +58,10 @@ typedef struct _Instruction {
   
   Operation operation;
 
-  FieldType first_type;
-  union Field first;
+  int number_fields;
+  FieldType* field_types;
+  union _Field* fields;
 
-  FieldType second_type;
-  union Field second;
 } Instruction;
 
 /** 
@@ -72,8 +74,5 @@ PyObject* create_instruction_instance();
 void init_instruction_module(PyObject* module);
 
 bool parse_line(Instruction* instruction, char* input);
-void parse_instruction_single(Instruction* instruction,Operation op, char* field_one);
-void parse_instruction_two(Instruction* instruction, Operation op, char* field_one,char* field_two);
-
 
 #endif

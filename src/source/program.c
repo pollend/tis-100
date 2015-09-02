@@ -63,7 +63,7 @@ static Node *create_input_node(Program *p, PyObject* file) {
       return NULL;
 
     Instruction *i = (Instruction*)create_instruction_instance();
-    parse_instruction_two(i,MOV,"DOWN",line);
+//    parse_instruction_two(i,"DOWN",line);
     append_instruction(n,i);
 
     free(line);
@@ -86,7 +86,7 @@ static Node *create_output_node(Program *p, PyObject* file) {
   append_node(UP,n,above);
 
   Instruction *i = (Instruction*)create_instruction_instance();
-  parse_instruction_two(i,MOV,"UP","ACC");
+//  parse_instruction_two(i,"UP","ACC");
   append_instruction(n,i);
 
   return n;

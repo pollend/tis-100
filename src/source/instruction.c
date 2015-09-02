@@ -6,118 +6,8 @@
 #include <string.h>
 
 
-/*Instruction to string*/
-static char* convert_location_str(FieldType loc_type,union Field location)
-{
-  if(loc_type == NUMBER)
-  {
-
-    char* out = (char*)malloc(sizeof(char)*3+1);
-    if(sprintf(out,"%u",location.number))
-    {
-      return (char*)out;
-    }
-  }
-  else if(loc_type == NAME)
-  {
-    printf("testing:`%s\n",location.name_field.name);
-    return strdup(location.name_field.name);
-  }  
-  else
-  {
-    switch(location.direction)
-    {
-      case UP:
-       return strdup("UP");
-      case RIGHT:
-       return strdup("RIGHT");
-      case DOWN:
-       return strdup("DOWN");
-      case LEFT:
-       return strdup("LEFT");
-      case NIL:
-       return strdup("NIL");
-      case ACC:
-       return strdup("ACC");
-      case ANY:
-       return strdup("ANY");
-      case LAST:
-       return strdup("LAST");
-    }
-  }
-
-  return strdup("");
-}
 
 
-char* convert_instruction_str(Instruction* instruction)
-{
-  char* src_str = convert_location_str(instruction->first_type,instruction->first);
-  char* dest_str = convert_location_str(instruction->second_type,instruction->second);
-
-  char* combined = (char*)malloc(2+strlen(src_str)+ strlen(dest_str));
-  strcpy(combined,src_str);
-  strcat(combined, " ");
-  strcat(combined, dest_str);
-
-  char* out = NULL;
-  switch(instruction->operation)
-  {
-    //CALL <LABEL> <LABEL>
-    case MOV:
-      out = combine_str("MOV ", combined);
-    break;
-
-    //CALL
-    case SAV:
-       out = strdup("SAV");
-    break;
-    case SWP:
-      out = strdup("SWP");
-    break;
-    case NOP:
-      out = strdup("NOP");
-    break;
-    case NEG:
-      out = strdup("NEG");
-    break;
-
-    //CALL <LABEL>
-    case SUB:
-      out = combine_str("SUB ", dest_str);      
-    break;
-    case ADD:
-      out = combine_str("ADD ", dest_str);
-    break;
-    case JEZ:    
-      out = combine_str("JEZ ", dest_str);
-    break;
-    case JMP:
-      out = combine_str("JMP ", dest_str);
-    break;
-    case JNZ:
-      out = combine_str("JNZ ", dest_str);
-    break;
-    case JGZ:
-      out = combine_str("JGZ ", dest_str);
-    break;
-    case JLZ:
-      out = combine_str("SUB ", dest_str);
-    break;
-    case JMP_FLAG:
-    out = strdup(src_str);
-    break;
-    default:
-      out = strdup("");
-    break;
-  }
-
-  free(combined);
-  free(src_str);
-  free(dest_str);
-  printf("%s\n",out );
-  return out;
-}
 
 /*
 Instruction *node_create_instruction(Node *n, Operation op) {
@@ -128,48 +18,6 @@ Instruction *node_create_instruction(Node *n, Operation op) {
   PyList_Append(n->instructions,(PyObject*)i);
   return i;
 }*/
-
-static void parse_field(char *s, union Field *field,FieldType *type) {
-  if (strcmp(s, "UP") == 0) {
-    *type = ADDRESS;
-    (*field).direction = UP;
-  } else if (strcmp(s, "DOWN") == 0) {
-    *type = ADDRESS;
-    (*field).direction = DOWN;
-  } else if (strcmp(s, "LEFT") == 0) {
-    *type = ADDRESS;
-    (*field).direction = LEFT;
-  } else if (strcmp(s, "RIGHT") == 0) {
-    *type = ADDRESS;
-    (*field).direction = RIGHT;
-  } else if (strcmp(s, "ACC") == 0) {
-    *type = ADDRESS;
-    (*field).direction = ACC;
-  } else if (strcmp(s, "NIL") == 0) {
-    *type = ADDRESS;
-    (*field).direction = NIL;
-  } else if (strcmp(s, "ANY") == 0) {
-    *type = ADDRESS;
-    (*field).direction = ANY;
-  } else if (strcmp(s, "LAST") == 0) {
-    *type = ADDRESS;
-    (*field).direction = LAST;
-  } else {
-    int value = atoi(s);
-    if(value == 0)
-    {
-       *type = NUMBER;
-      (*field).number = atoi(s);
-    }
-    else
-    {
-
-      *type = NAME;
-      (*field).name_field.name = strdup(s);
-      (*field).name_field.ip = 0;
-    }
-  }
-}
 
 static Operation parse_operation(const char *input)
 {
@@ -207,70 +55,257 @@ static Operation parse_operation(const char *input)
     
 }
 
+static void parse_field(char *s, Instruction* inst, int index) {
+  if(inst->field_types[index] == ADDRESS)
+  {
+      if (strcmp(s, "UP") == 0) {
+      inst->fields[index].address.direction = UP;
+    } else if (strcmp(s, "DOWN") == 0) {
+      inst->fields[index].address.direction = DOWN;
+    } else if (strcmp(s, "LEFT") == 0) {
+      inst->fields[index].address.direction = LEFT;
+    } else if (strcmp(s, "RIGHT") == 0) {
+      inst->fields[index].address.direction = RIGHT;
+    } else if (strcmp(s, "ACC") == 0) {
+      inst->fields[index].address.direction = ACC;
+    } else if (strcmp(s, "NIL") == 0) {
+      inst->fields[index].address.direction = NIL;
+    } else if (strcmp(s, "ANY") == 0) {
+      inst->fields[index].address.direction = ANY;
+    } else if (strcmp(s, "LAST") == 0) {
+      inst->fields[index].address.direction = LAST;
+    } else {
+
+      inst->fields[index].address.direction = NUMBER;
+      inst->fields[index].address.number = atoi(s);
+    }
+
+  }
+  else
+  {
+      if(s[strlen(s)-1] == ':')
+      {
+        char* output = strdup(s);
+        output[strlen(output)-1] = '\0';
+        inst->fields[index].name.name =output;
+      }
+      else
+      {
+       inst->fields[index].name.name = strdup(s);
+      }
+      inst->fields[index].name.ip = -1;
+  }
+
+}
+
+static inline void create_fields(int number_fields,Instruction* inst)
+{
+  inst->fields = malloc(sizeof(Field) * number_fields);
+  inst->field_types = malloc(sizeof(FieldType) * number_fields);
+  inst->number_fields = number_fields;
+
+}
+
+static inline void set_field_type(int index,Instruction* inst,FieldType type)
+{
+  inst->field_types[index] = type;
+}
+
 bool parse_line(Instruction* instruction, char* input)
 {
   char* line = strdup(input);
-  char* ptr = line;
+    char* ptr = line;
 
-  char* operator =  strsep(&ptr," ");
-  Operation op = parse_operation(operator);
-  switch(op)
-  {
-    case NONE:
-     // free(line);
-     // return false;
-    break;
+    char* operator =  strsep(&ptr," ");
+    Operation op = parse_operation(operator);
+    switch(op)
+    {
+      case NONE:
+        instruction->operation = NONE;
+      break;
 
-    case JMP_FLAG:
-     instruction->operation = op;
-     parse_field(operator,&instruction->first,&instruction->first_type);
-    break;
+      case JMP_FLAG:
+       instruction->operation = op;
+       create_fields(1,instruction);
+       set_field_type(0,instruction,NAME);
+       parse_field(operator,instruction,0);
+      break;
 
-    case SAV:
-    case SWP:
-    case NOP:
-    case NEG:
-    case OUT:
-    instruction->operation = op;
-    break;
+      case SAV:
+      case SWP:
+      case NOP:
+      case NEG:
+      case OUT:
+        instruction->operation = op;
+      break;
 
-    case SUB:
-    case ADD:
-    case JEZ:
-    case JMP:
-    case JNZ:
-    case JGZ:
-    case JLZ:
-    case JRO:
-     instruction->operation = op;
-     parse_field(strsep(&ptr," "), &instruction->first,&instruction->first_type);
-    break;
-    
-    
-    case MOV:
-     instruction->operation = op;
+      case SUB:
+      case ADD:
+      case JRO:
+       instruction->operation = op;
+        create_fields(1,instruction);
+        set_field_type(0,instruction,ADDRESS);
+        parse_field(strsep(&ptr," "),instruction,0);
+      break;
 
-      parse_field(strsep(&ptr," "), &instruction->first,&instruction->first_type);
-      parse_field(strsep(&ptr," "), &instruction->second,&instruction->second_type);
-    break;
-    
-  };
-  free(line);
+      case JEZ:
+      case JMP:
+      case JNZ:
+      case JGZ:
+      case JLZ:
+       instruction->operation = op;
+
+       create_fields(1,instruction);
+
+       set_field_type(0,instruction,NAME);
+       parse_field(strsep(&ptr," "),instruction,0);
+
+      break;
+      
+      
+      case MOV:
+       instruction->operation = op;
+        
+        create_fields(2,instruction);
+
+        set_field_type(0,instruction,ADDRESS);
+        parse_field(strsep(&ptr," "),instruction,0);
+
+
+        set_field_type(1,instruction,ADDRESS);
+        parse_field(strsep(&ptr," "),instruction,1);
+
+      break;
+      
+    };
+    free(line);
+  
   return true;
 }
 
-void parse_instruction_single(Instruction* instruction,Operation op, char* field_one)
+ /*Instruction to string*/
+static char** convert_fields_str(Instruction* inst)
 {
-  instruction->operation = op;
-  parse_field(field_one, &instruction->first,&instruction->first_type);
+  char** items = NULL;
+  items = malloc(sizeof(char*) * inst->number_fields);
+
+  for (int i = 0; i < inst->number_fields; ++i)
+  {
+    switch(inst->field_types[i])
+    {
+      case ADDRESS:
+        switch(inst->fields[i].address.direction)
+        {
+           case UP:
+           items[i] =  strdup("UP");
+           break;
+          case RIGHT:
+           items[i] = strdup("RIGHT");
+           break;
+          case DOWN:
+           items[i] = strdup("DOWN");
+           break;
+          case LEFT:
+           items[i] = strdup("LEFT");
+           break;
+          case NIL:
+           items[i] = strdup("NIL");
+           break;
+          case ACC:
+           items[i] = strdup("ACC");
+           break;
+          case ANY:
+           items[i] = strdup("ANY");
+           break;
+          case LAST:
+           items[i] = strdup("LAST");
+           break;
+          case NUMBER:
+           ;
+            char* out = (char*)malloc(sizeof(char)*3+1);
+            if(sprintf(out,"%u",inst->fields[i].address.number))
+            {
+              items[i] =  (char*)out;
+            }
+           break;
+        }
+      break;
+      case NAME:
+        items[i] =strdup( inst->fields[i].name.name);
+      break;
+
+    }
+  }
+
+ 
+  return items;
 }
 
-void parse_instruction_two(Instruction* instruction, Operation op, char* field_one,char* field_two)
-{
-  instruction->operation = op;
-  parse_field(field_one, &instruction->first,&instruction->first_type);
-  parse_field(field_two, &instruction->second,&instruction->second_type);
 
+
+char* convert_instruction_str(Instruction* instruction)
+{
+  char** field_str = convert_fields_str(instruction);
+  
+  char* out =malloc(sizeof(char) * 60);
+  switch(instruction->operation)
+  {
+    //CALL <LABEL> <LABEL>
+    case MOV:
+    sprintf(out,"MOV %s %s",field_str[0],field_str[1]);
+    break;
+
+    //CALL
+    case SAV:
+       sprintf(out,"SAV");
+    break;
+    case SWP:
+      sprintf(out,"SWP");
+    break;
+    case NOP:
+      sprintf(out,"NOP");
+    break;
+    case NEG:
+      sprintf(out,"NEG");
+    break;
+
+    //CALL <LABEL>
+    case SUB:
+      sprintf(out,"SUB %s",field_str[0]);
+    break;
+    case ADD:
+      sprintf(out,"ADD %s",field_str[0]);
+      //out = combine_str("ADD ", dest_str);
+    break;
+    case JEZ:    
+      sprintf(out,"JEZ %s",field_str[0]);
+    break;
+    case JMP:
+      sprintf(out,"JMP %s",field_str[0]);
+    break;
+    case JNZ:
+      sprintf(out,"JNZ %s",field_str[0]);
+    break;
+    case JGZ:
+      sprintf(out,"JGZ %s",field_str[0]);
+    break;
+    case JLZ:
+     sprintf(out,"JLZ %s",field_str[0]);
+    break;
+    case JMP_FLAG:
+    sprintf(out,"%s:",field_str[0]);
+    break;
+    case NONE:
+    sprintf(out," ");
+    break;
+  }
+
+    for (int i = 0; i < instruction->number_fields; ++i)
+    {
+      free(field_str[i]);
+    }
+    free(field_str);
+  return out;
 }
 
 

@@ -34,7 +34,7 @@ static inline Node *node_get_input_port(Node *n, int direction) {
   }
 }
 
-static inline Node *node_get_output_port(Node *n, int direction) {
+/*static inline Node *node_get_output_port(Node *n, int direction) {
   if (direction == ANY) {
     LocationDirection dirs[] = {UP, LEFT, RIGHT, DOWN};
     for (int i = 0; i < 4; i++) {
@@ -52,8 +52,9 @@ static inline Node *node_get_output_port(Node *n, int direction) {
   } else {
     return n->ports[direction];
   }
-}
+}*/
 
+/*
 ReadResult node_read(Node *n, FieldType type, union Field where) {
   ReadResult res;
   res.blocked = 0;
@@ -62,7 +63,7 @@ ReadResult node_read(Node *n, FieldType type, union Field where) {
     return res;
   }
 
-  if (type == NUMBER) {
+  if (type == ADDRESS) {
     res.value = where.number;
   } else {
     Node *read_from;
@@ -100,7 +101,7 @@ ReadResult node_read(Node *n, FieldType type, union Field where) {
   }
 
   return res;
-}
+}*/
 
 static inline Instruction* create_instruction(char* line)
 {
@@ -177,7 +178,7 @@ int node_write(Node *n, LocationDirection dir, short value) {
     case LEFT:
     case ANY:
     case LAST:
-      dest = node_get_output_port(n, dir);
+      dest = NULL;//node_get_output_port(n, dir);
       if (dest && n->output_port == NULL) {
         n->output_port = dest;
         n->output_value = value;
@@ -185,6 +186,8 @@ int node_write(Node *n, LocationDirection dir, short value) {
       }
       return 1;
       break;
+    case NUMBER:
+    break;
     case NIL:
       break;
       //  return NULL;
@@ -200,7 +203,7 @@ int node_write(Node *n, LocationDirection dir, short value) {
 void node_advance(Node *n) { node_set_ip(n, n->ip + 1); }
 
 void node_tick(Node *n) {
-  n->blocked = TRUE;
+  /*n->blocked = TRUE;
 
   Instruction *i = (Instruction*)PyList_GetItem(n->instructions,n->ip);
   short tmp;
@@ -286,7 +289,7 @@ void node_tick(Node *n) {
       //      raise_error("ERROR: DIDN'T HANDLE op\n");
   }
   n->blocked = FALSE;
-  node_advance(n);
+  node_advance(n);*/
 }
 
 void append_node(LocationDirection direction, Node* from, Node* to)
