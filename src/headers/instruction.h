@@ -75,4 +75,8 @@ void init_instruction_module(PyObject* module);
 
 bool parse_line(Instruction* instruction, char* input);
 
+void set_field_type(int index,Instruction* inst,FieldType type);
+void create_fields(int number_fields,Instruction* inst);
+Field* get_field(int index);
+
 #endif

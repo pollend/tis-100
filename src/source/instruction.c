@@ -35,7 +35,7 @@ static Operation parse_operation(const char *input)
     return NOP;
   else if(strcmp(input,"NEG") == 0)
     return NEG;
-  else if(strcmp(input,"JEZ") == 0)
+  else if(strcmp(input,"JEZ") == =0)
     return JEZ;
   else if(strcmp(input,"JNZ") == 0)
     return JNZ;
@@ -98,7 +98,7 @@ static void parse_field(char *s, Instruction* inst, int index) {
 
 }
 
-static inline void create_fields(int number_fields,Instruction* inst)
+void create_fields(int number_fields,Instruction* inst)
 {
   inst->fields = malloc(sizeof(Field) * number_fields);
   inst->field_types = malloc(sizeof(FieldType) * number_fields);
@@ -106,9 +106,14 @@ static inline void create_fields(int number_fields,Instruction* inst)
 
 }
 
-static inline void set_field_type(int index,Instruction* inst,FieldType type)
+void set_field_type(int index,Instruction* inst,FieldType type)
 {
   inst->field_types[index] = type;
+}
+
+Field* get_field(Instruction* instruction,int index)
+{
+  assert(instruction->number_fields < index);
 }
 
 bool parse_line(Instruction* instruction, char* input)

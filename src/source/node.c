@@ -54,7 +54,7 @@ static inline Node *node_get_input_port(Node *n, int direction) {
   }
 }*/
 
-/*
+
 ReadResult node_read(Node *n, FieldType type, union Field where) {
   ReadResult res;
   res.blocked = 0;
@@ -101,7 +101,7 @@ ReadResult node_read(Node *n, FieldType type, union Field where) {
   }
 
   return res;
-}*/
+}
 
 static inline Instruction* create_instruction(char* line)
 {
@@ -203,7 +203,7 @@ int node_write(Node *n, LocationDirection dir, short value) {
 void node_advance(Node *n) { node_set_ip(n, n->ip + 1); }
 
 void node_tick(Node *n) {
-  /*n->blocked = TRUE;
+  n->blocked = TRUE;
 
   Instruction *i = (Instruction*)PyList_GetItem(n->instructions,n->ip);
   short tmp;
@@ -289,7 +289,7 @@ void node_tick(Node *n) {
       //      raise_error("ERROR: DIDN'T HANDLE op\n");
   }
   n->blocked = FALSE;
-  node_advance(n);*/
+  node_advance(n);
 }
 
 void append_node(LocationDirection direction, Node* from, Node* to)
