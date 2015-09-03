@@ -63,7 +63,9 @@ static Node *create_input_node(Program *p, PyObject* file) {
       return NULL;
 
     Instruction *i = (Instruction*)create_instruction_instance();
-//    parse_instruction_two(i,"DOWN",line);
+    char buffer[100];
+    sprintf(buffer,"MOV DOWN %i",atoi(line));
+    parse_line(i,buffer);
     append_instruction(n,i);
 
     free(line);
@@ -86,7 +88,7 @@ static Node *create_output_node(Program *p, PyObject* file) {
   append_node(UP,n,above);
 
   Instruction *i = (Instruction*)create_instruction_instance();
-//  parse_instruction_two(i,"UP","ACC");
+  parse_line(i,"MOV UP ACC");
   append_instruction(n,i);
 
   return n;
@@ -112,7 +114,7 @@ static PyObject* py_program_load_system(PyObject * self, PyObject * args) {
       n = create_output_node((Program*)self, file);
     }
     if (n) {
-      PyList_Append((PyObject*)((Program*)self)->active_nodes,(PyObject*)n);
+      PyList_Append((PyObject*)((Program*)self)->nodes,(PyObject*)n);
     }
 
     free(line);
@@ -141,10 +143,6 @@ static PyObject* py_program_load_code(PyObject * self, PyObject * args) {
   if (!PyArg_ParseTuple(args, "O",&file))
    return NULL;
 
-  InputCode all_input[PROGRAM_NODES];
-  for (int i=0; i<PROGRAM_NODES; i++) {
-    input_code_init(&all_input[i]);
-  }
 
    int index = 0;
    while (true) {
@@ -171,17 +169,7 @@ static PyObject* py_program_load_code(PyObject * self, PyObject * args) {
     free(line);
   }
 
- /* for (int i=0; i<PROGRAM_NODES; i++) {
 
-    Node *n = (Node*)PyList_GetItem(((Program*)self)->nodes,i);//((Program*)self)->nodes_by_index[i];
-    node_parse_code(n, &all_input[n->number]);
-    input_code_clean(&all_input[n->number]);
-
-    if (PyList_Size(n->instructions) > 0) {
-       PyList_Append((PyObject*)((Program*)self)->active_nodes,(PyObject*)n);
-    }
-
-  }*/
   Py_RETURN_NONE;
 }
 
@@ -198,12 +186,6 @@ static PyObject* program_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
       return NULL;
     }
 
-    self->active_nodes  =   Py_BuildValue("[]");
-    if( self->active_nodes == NULL)
-    {
-      Py_DECREF(self);
-      return NULL;
-    }
   }
   return (PyObject*)self;
 }
@@ -217,12 +199,14 @@ static PyObject* program_tick(PyObject * self, PyObject * args) {
   int all_blocked = TRUE;
   Program* p = (Program*)self;
 
-  for (int i = 0; i < PyList_Size(p->active_nodes); ++i)
+  for (int i = 0; i < PyList_Size(p->nodes); ++i)
   {
-    Node *n = (Node*)PyList_GetItem(p->active_nodes,i);
+    Node *n = (Node*)PyList_GetItem(p->nodes,i);
     node_tick(n);
+    // node_up_cycle(n);
     all_blocked &= n->blocked;
   }
+  
   if(all_blocked)
    Py_RETURN_TRUE;
   Py_RETURN_FALSE;
@@ -237,7 +221,6 @@ static int  py_program_init(Program *self, PyObject *args, PyObject *kwds) {
     n->number = i;
   }
   // Link all the nodes up
-  custom_log("linking nodes");
   for (int i = 0; i < PyList_Size(self->nodes); ++i)
   {
     Node* item = ((Node*)PyList_GET_ITEM(self->nodes,i));
@@ -249,15 +232,13 @@ static int  py_program_init(Program *self, PyObject *args, PyObject *kwds) {
       item->ports[UP] = (Node*)PyList_GET_ITEM(self->nodes,i-4);
     }
   }
-  custom_log("finished linking nodes");
   return 0;
 }
 
-static void py_program_decalloc(PyObject *self)
+static void py_program_dealloc(PyObject *self)
 {
   custom_log("started freeing Program");
   Py_XDECREF(((Program*)self)->nodes);
-  Py_XDECREF(((Program*)self)->active_nodes);
    self->ob_type->tp_free(self);
    custom_log("finished freeing Program");
   
@@ -283,7 +264,7 @@ static PyMemberDef py_program_members[] = {
     "program",                            /*tp_name*/
     sizeof(Program),                            /*tp_basicsize*/
     0,                                        /*tp_itemsize*/
-    (destructor)py_program_decalloc,                /*tp_dealloc*/
+    (destructor)py_program_dealloc,                /*tp_dealloc*/
     0,                                        /*tp_print*/
     0,                                        /*tp_getattr*/
     0,                                        /*tp_setattr*/

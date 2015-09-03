@@ -9,8 +9,7 @@ typedef struct _Program {
   PyObject_HEAD
 
   PyObject *nodes;
-  PyObject *active_nodes;
-} Program;
+ } Program;
 
 PyObject* create_program_instance();
 

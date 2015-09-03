@@ -35,7 +35,7 @@ static Operation parse_operation(const char *input)
     return NOP;
   else if(strcmp(input,"NEG") == 0)
     return NEG;
-  else if(strcmp(input,"JEZ") == =0)
+  else if(strcmp(input,"JEZ") == 0)
     return JEZ;
   else if(strcmp(input,"JNZ") == 0)
     return JNZ;
@@ -55,7 +55,8 @@ static Operation parse_operation(const char *input)
     
 }
 
-static void parse_field(char *s, Instruction* inst, int index) {
+static void parse_field(char *s, Instruction* inst, int index,FieldType type) {
+  inst->field_types[index] = type;
   if(inst->field_types[index] == ADDRESS)
   {
       if (strcmp(s, "UP") == 0) {
@@ -106,14 +107,18 @@ void create_fields(int number_fields,Instruction* inst)
 
 }
 
-void set_field_type(int index,Instruction* inst,FieldType type)
-{
-  inst->field_types[index] = type;
-}
+
 
 Field* get_field(Instruction* instruction,int index)
 {
-  assert(instruction->number_fields < index);
+//  assert(instruction->number_fields < index);
+  return (instruction->fields +index);
+}
+
+
+FieldType* get_field_type(Instruction* instruction, int index)
+{
+  return (instruction->field_types +index);
 }
 
 bool parse_line(Instruction* instruction, char* input)
@@ -132,8 +137,7 @@ bool parse_line(Instruction* instruction, char* input)
       case JMP_FLAG:
        instruction->operation = op;
        create_fields(1,instruction);
-       set_field_type(0,instruction,NAME);
-       parse_field(operator,instruction,0);
+       parse_field(operator,instruction,0,NAME);
       break;
 
       case SAV:
@@ -149,8 +153,7 @@ bool parse_line(Instruction* instruction, char* input)
       case JRO:
        instruction->operation = op;
         create_fields(1,instruction);
-        set_field_type(0,instruction,ADDRESS);
-        parse_field(strsep(&ptr," "),instruction,0);
+        parse_field(strsep(&ptr," "),instruction,0,ADDRESS);
       break;
 
       case JEZ:
@@ -159,11 +162,8 @@ bool parse_line(Instruction* instruction, char* input)
       case JGZ:
       case JLZ:
        instruction->operation = op;
-
        create_fields(1,instruction);
-
-       set_field_type(0,instruction,NAME);
-       parse_field(strsep(&ptr," "),instruction,0);
+       parse_field(strsep(&ptr," "),instruction,0,NAME);
 
       break;
       
@@ -173,12 +173,8 @@ bool parse_line(Instruction* instruction, char* input)
         
         create_fields(2,instruction);
 
-        set_field_type(0,instruction,ADDRESS);
-        parse_field(strsep(&ptr," "),instruction,0);
-
-
-        set_field_type(1,instruction,ADDRESS);
-        parse_field(strsep(&ptr," "),instruction,1);
+        parse_field(strsep(&ptr," "),instruction,0,ADDRESS);
+        parse_field(strsep(&ptr," "),instruction,1,ADDRESS);
 
       break;
       
@@ -294,6 +290,9 @@ char* convert_instruction_str(Instruction* instruction)
     case JGZ:
       sprintf(out,"JGZ %s",field_str[0]);
     break;
+    case JRO:
+    sprintf(out,"JRO %s",field_str[0]);
+    break;
     case JLZ:
      sprintf(out,"JLZ %s",field_str[0]);
     break;
@@ -301,6 +300,7 @@ char* convert_instruction_str(Instruction* instruction)
     sprintf(out,"%s:",field_str[0]);
     break;
     case NONE:
+    case OUT:
     sprintf(out," ");
     break;
   }
@@ -338,10 +338,8 @@ static PyObject * py_instruction_str (PyObject* self) {
 
 static void py_instruction_dealloc(PyObject *self)
 {
-   custom_log("started freeing Instruction");
    Py_XDECREF(((Node*)self)->instructions);
    self->ob_type->tp_free(self);
-   custom_log("finished freeing Instruction");
 
 }
 

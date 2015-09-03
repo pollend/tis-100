@@ -1,4 +1,5 @@
 #include <Python.h>
+#include "structmember.h"
 
 #include "node.h"
 
@@ -10,11 +11,15 @@
 
 #include "util.h"
 
-
-
 static inline void node_set_ip(Node *n, short new_val) {
-  if (new_val >= PyList_Size(n->instructions) || new_val < 0) new_val = 0;
-  n->ip = new_val;
+  if (new_val >= PyList_Size(n->instructions) || new_val < 0) 
+  {
+    n->ip = 0;
+  }
+  else
+  {
+     n->ip = new_val;
+  }
 }
 
 static inline Node *node_get_input_port(Node *n, int direction) {
@@ -34,17 +39,17 @@ static inline Node *node_get_input_port(Node *n, int direction) {
   }
 }
 
-/*static inline Node *node_get_output_port(Node *n, int direction) {
+static inline Node *node_get_output_port(Node *n, int direction) {
   if (direction == ANY) {
     LocationDirection dirs[] = {UP, LEFT, RIGHT, DOWN};
     for (int i = 0; i < 4; i++) {
       Node *port = n->ports[dirs[i]];
-      Instruction *inst = (Instruction*)PyList_GetItem(port->instructions,n->ip);
-      if (port && inst->operation == MOV && inst->first_type == ADDRESS &&
-          (inst->first.direction == ANY ||
-           port->ports[inst->first.direction] == n)) {
+
+      //Instruction *inst = (Instruction*)PyList_GetItem(port->instructions,n->ip);
+      //Field* f = get_field(inst,0);
+      //if (port && inst->operation == MOV && inst->first_type == ADDRESS &&(f->address.direction == ANY || port->ports[inst->first.direction] == n)) {
         return port;
-      }
+     //}
     }
     return NULL;
   } else if (direction == LAST) {
@@ -52,56 +57,10 @@ static inline Node *node_get_input_port(Node *n, int direction) {
   } else {
     return n->ports[direction];
   }
-}*/
-
-
-ReadResult node_read(Node *n, FieldType type, union Field where) {
-  ReadResult res;
-  res.blocked = 0;
-
-  if (n->output_port) {
-    return res;
-  }
-
-  if (type == ADDRESS) {
-    res.value = where.number;
-  } else {
-    Node *read_from;
-    switch (where.direction) {
-      case NIL:
-        res.value = 0;
-        break;
-      case ACC:
-        res.value = n->acc;
-        break;
-      case UP:
-      case RIGHT:
-      case DOWN:
-      case LEFT:
-      case ANY:
-      case LAST:
-        read_from = node_get_input_port(n, where.direction);
-        if (read_from && read_from->output_port == n) {
-          res.value = read_from->output_value;
-          res.blocked = 0;
-
-          read_from->output_value = 0;
-          read_from->output_port = NULL;
-          node_advance(read_from);
-          if (where.direction == ANY) n->last = read_from;
-        } else if (read_from == NULL && where.direction == LAST) {
-          res.value = 0;
-        } else {
-          res.blocked = 1;
-        }
-        break;
-            //default:
-        //        raise_error("unhandled direction");
-    }
-  }
-
-  return res;
 }
+
+
+
 
 static inline Instruction* create_instruction(char* line)
 {
@@ -115,6 +74,7 @@ void append_instruction(Node *n,Instruction* instruction)
 {
   PyList_Append((PyObject*)n->instructions,(PyObject*)instruction);
 }
+
 
 void node_parse(Node* node,char* input)
 {
@@ -166,6 +126,7 @@ void node_parse(Node* node,char* input)
 
 
 
+
 int node_write(Node *n, LocationDirection dir, short value) {
   Node *dest;
   switch (dir) {
@@ -178,7 +139,7 @@ int node_write(Node *n, LocationDirection dir, short value) {
     case LEFT:
     case ANY:
     case LAST:
-      dest = NULL;//node_get_output_port(n, dir);
+      dest = node_get_output_port(n, dir);
       if (dest && n->output_port == NULL) {
         n->output_port = dest;
         n->output_value = value;
@@ -200,7 +161,89 @@ int node_write(Node *n, LocationDirection dir, short value) {
   return 0;
 }
 
+ReadResult node_read(Node *n,Field* field) {
+  ReadResult res;
+  res.blocked = 0;
+
+  if (n->output_port) {
+    return res;
+  }
+//res.value = where.number;
+
+Node *read_from;
+switch (field->address.direction) {
+  case NIL:
+    res.value = 0;
+    break;
+  case ACC:
+    res.value = n->acc;
+    break;
+  case UP:
+  case RIGHT:
+  case DOWN:
+  case LEFT:
+  case ANY:
+  case LAST:
+    read_from = node_get_input_port(n,field->address.direction);
+    if (read_from && read_from->output_port == n) {
+      res.value = read_from->output_value;
+      res.blocked = 0;
+
+      read_from->output_value = 0;
+      read_from->output_port = NULL;
+      node_advance(read_from);
+      if (field->address.direction == ANY) n->last = read_from;
+    } else if (read_from == NULL && field->address.direction == LAST) {
+      res.value = FALSE;
+    } else {
+      res.blocked = TRUE;
+    }
+    break;
+  case NUMBER:
+  res.value = field->address.number;
+   break;
+
+}
+
+  return res;
+}
+
+
 void node_advance(Node *n) { node_set_ip(n, n->ip + 1); }
+
+void node_up_cycle(Node* n)
+{
+  n->cycle_count += 1;
+  
+}
+
+static int node_get_ip(Node* n,Field* field)
+{
+  if(field->name.ip == -1)
+  {
+      for (int i = 0; i < PyList_Size(n->instructions); ++i)
+      {
+        Instruction *inst = (Instruction*)PyList_GetItem(n->instructions,i);
+        if(inst->operation == JMP_FLAG)
+        {
+          Field* f = get_field(inst,0);
+          if(strcmp(field->name.name,f->name.name) == 0)
+          {
+            return i;
+          }
+
+        }
+
+    }
+  }
+  else
+  {
+    return field->name.ip;
+  }
+  return -1;
+
+}
+
 
 void node_tick(Node *n) {
   n->blocked = TRUE;
@@ -214,13 +257,14 @@ void node_tick(Node *n) {
   switch (i->operation) {
     
     case MOV:
+
       read = node_read(n, i->first_type, i->first);
       if (read.blocked) return;
       blocked = node_write(n, i->second.direction, read.value);
       if (blocked) return;
       break;
     case ADD:
-      read = node_read(n, i->first_type, i->first);
+      ReadResult value = node_read(n,get_field(i,0));
       if (read.blocked) return;
 
       n->acc += read.value;
@@ -228,40 +272,43 @@ void node_tick(Node *n) {
       if (n->acc < MIN_ACC) n->acc = MIN_ACC;
       break;
     case SUB:
-      read = node_read(n, i->first_type, i->first);
+
+      ReadResult result = node_read(n,get_field(i,0));
+
       if (read.blocked) return;
 
-      n->acc -= read.value;
+      n->acc -= result.value;
       if (n->acc > MAX_ACC) n->acc = MAX_ACC;
       if (n->acc < MIN_ACC) n->acc = MIN_ACC;
       break;
     case JMP:
-      node_set_ip(n, i->first.number);
-      return;
+      node_set_ip(n, node_get_ip(n,get_field(i,0)));
+    break;
     case JRO:
-      node_set_ip(n, n->ip + i->first.number);
-      return;
+      ReadResult result = node_read(n,get_field(i,0));
+      node_set_ip(n, n->ip + result.value);
+    return;
     case JEZ:
       if (n->acc == 0) {
-        node_set_ip(n, i->first.number);
+        node_set_ip(n, node_get_ip(n,get_field(i,0)));
         return;
       }
       break;
     case JGZ:
       if (n->acc > 0) {
-        node_set_ip(n, i->first.number);
+        node_set_ip(n,node_get_ip(n,get_field(i,0)));
         return;
       }
       break;
     case JLZ:
       if (n->acc < 0) {
-        node_set_ip(n, i->first.number);
+        node_set_ip(n, node_get_ip(n,get_field(i,0)));
         return;
       }
       break;
     case JNZ:
       if (n->acc != 0) {
-        node_set_ip(n, i->first.number);
+        node_set_ip(n, node_get_ip(n,get_field(i,0)));
         return;
       }
       break;
@@ -281,9 +328,6 @@ void node_tick(Node *n) {
     case OUT:
     case NONE:
     case JMP_FLAG:
-#ifndef RICH_OUTPUT
-      printf("%d\n", n->acc);
-#endif
       break;
       //    default:
       //      raise_error("ERROR: DIDN'T HANDLE op\n");
@@ -344,6 +388,7 @@ static PyObject* py_node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self->bak= 0;
     self->ip = 0;
     self->output_value = 0;
+    self->cycle_count = 0;
 
     self->visible = FALSE;
     self->blocked = FALSE;

@@ -24,6 +24,8 @@ typedef struct _Node {
   short acc;
   short bak;
 
+  int cycle_count;
+
   struct _Node *output_port, *last;
   short output_value;
 
@@ -35,6 +37,7 @@ typedef struct _ReadResult {
   short value;
 } ReadResult;
 
+void node_up_cycle(Node* n);
 void node_tick(Node *n);
 
 int node_write(Node *n, LocationDirection dir, short value);
