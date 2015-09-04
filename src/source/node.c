@@ -127,11 +127,11 @@ void node_parse(Node* node,char* input)
 
 
 
-int node_write(Node *n, LocationDirection dir, short value) {
+int node_write(Node *n, Field* field) {
   Node *dest;
-  switch (dir) {
+  switch (field->address.direction) {
     case ACC:
-      n->acc = value;
+      n->acc = field->address.number;
       break;
     case UP:
     case RIGHT:
@@ -142,7 +142,7 @@ int node_write(Node *n, LocationDirection dir, short value) {
       dest = node_get_output_port(n, dir);
       if (dest && n->output_port == NULL) {
         n->output_port = dest;
-        n->output_value = value;
+        n->output_value = field->address.number;
         if (dir == ANY) n->last = dest;
       }
       return 1;
@@ -258,22 +258,22 @@ void node_tick(Node *n) {
     
     case MOV:
 
-      read = node_read(n, i->first_type, i->first);
+      read = node_read(n,get_field(i,0));
       if (read.blocked) return;
-      blocked = node_write(n, i->second.direction, read.value);
+      blocked = node_write(n, node_read(n,get_field(i,1)));
       if (blocked) return;
       break;
     case ADD:
-      ReadResult value = node_read(n,get_field(i,0));
+      result = node_read(n,get_field(i,0));
       if (read.blocked) return;
 
-      n->acc += read.value;
+      n->acc += result.value;
       if (n->acc > MAX_ACC) n->acc = MAX_ACC;
       if (n->acc < MIN_ACC) n->acc = MIN_ACC;
       break;
     case SUB:
 
-      ReadResult result = node_read(n,get_field(i,0));
+      result  = node_read(n,get_field(i,0));
 
       if (read.blocked) return;
 
@@ -285,8 +285,8 @@ void node_tick(Node *n) {
       node_set_ip(n, node_get_ip(n,get_field(i,0)));
     break;
     case JRO:
-      ReadResult result = node_read(n,get_field(i,0));
-      node_set_ip(n, n->ip + result.value);
+      result  = node_read(n,get_field(i,0));
+      node_set_ip(n, n->ip + jro_result.value);
     return;
     case JEZ:
       if (n->acc == 0) {

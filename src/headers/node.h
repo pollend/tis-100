@@ -40,7 +40,7 @@ typedef struct _ReadResult {
 void node_up_cycle(Node* n);
 void node_tick(Node *n);
 
-int node_write(Node *n, LocationDirection dir, short value);
+int node_write(Node *n, Field* field);
 void node_advance(Node *n);
 
 void node_parse(Node* node,char* input);
