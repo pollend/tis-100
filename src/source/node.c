@@ -139,11 +139,11 @@ int node_write(Node *n, Field* field) {
     case LEFT:
     case ANY:
     case LAST:
-      dest = node_get_output_port(n, dir);
+      dest = node_get_output_port(n,field->address.direction);
       if (dest && n->output_port == NULL) {
         n->output_port = dest;
         n->output_value = field->address.number;
-        if (dir == ANY) n->last = dest;
+        if (field->address.direction== ANY) n->last = dest;
       }
       return 1;
       break;
@@ -254,30 +254,29 @@ void node_tick(Node *n) {
 
   int blocked;
 
-  switch (i->operation) {
-    
+  switch (i->operation) {   
     case MOV:
 
       read = node_read(n,get_field(i,0));
       if (read.blocked) return;
-      blocked = node_write(n, node_read(n,get_field(i,1)));
+      blocked = node_write(n,get_field(i,1) );
       if (blocked) return;
       break;
     case ADD:
-      result = node_read(n,get_field(i,0));
+      read = node_read(n,get_field(i,0));
       if (read.blocked) return;
 
-      n->acc += result.value;
+      n->acc += read.value;
       if (n->acc > MAX_ACC) n->acc = MAX_ACC;
       if (n->acc < MIN_ACC) n->acc = MIN_ACC;
       break;
     case SUB:
 
-      result  = node_read(n,get_field(i,0));
+      read  = node_read(n,get_field(i,0));
 
       if (read.blocked) return;
 
-      n->acc -= result.value;
+      n->acc -= read.value;
       if (n->acc > MAX_ACC) n->acc = MAX_ACC;
       if (n->acc < MIN_ACC) n->acc = MIN_ACC;
       break;
@@ -285,8 +284,8 @@ void node_tick(Node *n) {
       node_set_ip(n, node_get_ip(n,get_field(i,0)));
     break;
     case JRO:
-      result  = node_read(n,get_field(i,0));
-      node_set_ip(n, n->ip + jro_result.value);
+      read  = node_read(n,get_field(i,0));
+      node_set_ip(n, n->ip + read.value);
     return;
     case JEZ:
       if (n->acc == 0) {
