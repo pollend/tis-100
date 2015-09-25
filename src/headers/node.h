@@ -40,13 +40,17 @@ typedef struct _ReadResult {
 void node_up_cycle(Node* n);
 void node_tick(Node *n);
 
-int node_write(Node *n, Field* field);
+int node_write(Node *n, Field* field,short value);
 void node_advance(Node *n);
 
 void node_parse(Node* node,char* input);
 
 void append_node(LocationDirection direction, Node* from, Node* to);
 void append_instruction(Node *n,Instruction* instruction);
+
+void set_output_port(Node* node,LocationDirection direction);
+void set_last_port(Node* node, LocationDirection direction);
+
 
 void init_node_module(PyObject* module);
 PyObject* create_node_instance();

@@ -5,20 +5,6 @@
 #include <stddef.h>
 #include <string.h>
 
-
-
-
-
-/*
-Instruction *node_create_instruction(Node *n, Operation op) {
-  assert(n->instruction_count < MAX_INSTRUCTIONS);
-
-  Instruction* i = (Instruction*)create_instruction_instance();
-  i->operation = op;
-  PyList_Append(n->instructions,(PyObject*)i);
-  return i;
-}*/
-
 static Operation parse_operation(const char *input)
 {
   if(strcmp(input,"MOV") == 0)
@@ -109,17 +95,14 @@ void create_fields(int number_fields,Instruction* inst)
 
 
 
-Field* get_field(Instruction* instruction,int index)
+Field* get_field(Instruction* instruction, int index, FieldType* type)
 {
-//  assert(instruction->number_fields < index);
+  if(type != NULL)
+    (*type) = (*instruction->field_types);
+  
   return (instruction->fields +index);
 }
 
-
-FieldType* get_field_type(Instruction* instruction, int index)
-{
-  return (instruction->field_types +index);
-}
 
 bool parse_line(Instruction* instruction, char* input)
 {
@@ -132,6 +115,7 @@ bool parse_line(Instruction* instruction, char* input)
     {
       case NONE:
         instruction->operation = NONE;
+        create_fields(0,instruction);
       break;
 
       case JMP_FLAG:
@@ -146,6 +130,7 @@ bool parse_line(Instruction* instruction, char* input)
       case NEG:
       case OUT:
         instruction->operation = op;
+         create_fields(0,instruction);
       break;
 
       case SUB:
@@ -177,6 +162,9 @@ bool parse_line(Instruction* instruction, char* input)
         parse_field(strsep(&ptr," "),instruction,1,ADDRESS);
 
       break;
+      default:
+      printf("%s\n","FAIL" );
+      return false;
       
     };
     free(line);
@@ -187,57 +175,58 @@ bool parse_line(Instruction* instruction, char* input)
  /*Instruction to string*/
 static char** convert_fields_str(Instruction* inst)
 {
-  char** items = NULL;
-  items = malloc(sizeof(char*) * inst->number_fields);
+    assert(inst != NULL);
 
-  for (int i = 0; i < inst->number_fields; ++i)
-  {
-    switch(inst->field_types[i])
+    char** items = NULL;
+    items = malloc(sizeof(char*) * inst->number_fields);
+
+    for (int i = 0; i < inst->number_fields; ++i)
     {
-      case ADDRESS:
-        switch(inst->fields[i].address.direction)
-        {
-           case UP:
-           items[i] =  strdup("UP");
-           break;
-          case RIGHT:
-           items[i] = strdup("RIGHT");
-           break;
-          case DOWN:
-           items[i] = strdup("DOWN");
-           break;
-          case LEFT:
-           items[i] = strdup("LEFT");
-           break;
-          case NIL:
-           items[i] = strdup("NIL");
-           break;
-          case ACC:
-           items[i] = strdup("ACC");
-           break;
-          case ANY:
-           items[i] = strdup("ANY");
-           break;
-          case LAST:
-           items[i] = strdup("LAST");
-           break;
-          case NUMBER:
-           ;
-            char* out = (char*)malloc(sizeof(char)*3+1);
-            if(sprintf(out,"%u",inst->fields[i].address.number))
-            {
-              items[i] =  (char*)out;
-            }
-           break;
-        }
-      break;
-      case NAME:
-        items[i] =strdup( inst->fields[i].name.name);
-      break;
+      switch(inst->field_types[i])
+      {
+        case ADDRESS:
+          switch(inst->fields[i].address.direction)
+          {
+             case UP:
+             items[i] =  strdup("UP");
+             break;
+            case RIGHT:
+             items[i] = strdup("RIGHT");
+             break;
+            case DOWN:
+             items[i] = strdup("DOWN");
+             break;
+            case LEFT:
+             items[i] = strdup("LEFT");
+             break;
+            case NIL:
+             items[i] = strdup("NIL");
+             break;
+            case ACC:
+             items[i] = strdup("ACC");
+             break;
+            case ANY:
+             items[i] = strdup("ANY");
+             break;
+            case LAST:
+             items[i] = strdup("LAST");
+             break;
+            case NUMBER:
+             ;
+              char* out = (char*)malloc(sizeof(char)*3+1);
+              if(sprintf(out,"%u",inst->fields[i].address.number))
+              {
+                items[i] =  (char*)out;
+              }
+             break;
+          }
+        break;
+        case NAME:
+          items[i] =strdup( inst->fields[i].name.name);
+        break;
 
+      }
     }
-  }
-
  
   return items;
 }
@@ -246,6 +235,9 @@ static char** convert_fields_str(Instruction* inst)
 
 char* convert_instruction_str(Instruction* instruction)
 {
+  if(instruction == NULL)
+    return strdup("\n");
+
   char** field_str = convert_fields_str(instruction);
   
   char* out =malloc(sizeof(char) * 60);

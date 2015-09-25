@@ -191,7 +191,7 @@ static PyObject* program_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
-static PyObject* program_tick(PyObject * self, PyObject * args) {
+static PyObject* py_program_tick(PyObject * self, PyObject * args) {
 
   if (!PyArg_ParseTuple(args, ""))
    return NULL;
@@ -249,7 +249,7 @@ static PyMethodDef py_program_method[] = {
   {"LoadSystem", (PyCFunction)py_program_load_system, METH_VARARGS,"loads states"},
   {"LoadCode", (PyCFunction)py_program_load_code, METH_VARARGS,"loads code"},
   {"GetNode",(PyCFunction)program_get_node,METH_VARARGS,"gets a node"},
-  {"Tick",(PyCFunction)program_tick,METH_VARARGS,"tick"},
+  {"Tick",(PyCFunction)py_program_tick,METH_VARARGS,"tick"},
   {NULL}
 };
 

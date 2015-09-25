@@ -46,7 +46,7 @@ static inline Node *node_get_output_port(Node *n, int direction) {
       Node *port = n->ports[dirs[i]];
 
       //Instruction *inst = (Instruction*)PyList_GetItem(port->instructions,n->ip);
-      //Field* f = get_field(inst,0);
+      //Field* f = get_field(inst,0,NULL);
       //if (port && inst->operation == MOV && inst->first_type == ADDRESS &&(f->address.direction == ANY || port->ports[inst->first.direction] == n)) {
         return port;
      //}
@@ -66,13 +66,20 @@ static inline Instruction* create_instruction(char* line)
 {
 
   Instruction* instance = (Instruction*)create_instruction_instance();
-  parse_line(instance,trim_whitespace(line));
-  return instance;
+   if( parse_line(instance,trim_whitespace(line)))
+   {
+    return instance;
+   }
+   else
+   {
+      return NULL;
+   }
 }
 
 void append_instruction(Node *n,Instruction* instruction)
 {
-  PyList_Append((PyObject*)n->instructions,(PyObject*)instruction);
+  if(instruction != NULL)
+    PyList_Append((PyObject*)n->instructions,(PyObject*)instruction);
 }
 
 
@@ -103,8 +110,9 @@ void node_parse(Node* node,char* input)
 
            inst_two = memcpy(inst_two,c+1,strlen(c));
            
-           PyList_Append((PyObject*)node->instructions, (PyObject*)create_instruction(inst_one));
-           PyList_Append((PyObject*)node->instructions, (PyObject*)create_instruction(inst_two));
+           append_instruction(node,create_instruction(inst_one));
+           append_instruction(node,create_instruction(inst_two));
+           
            free(inst_one);
            free(inst_two);
            c = NULL;
@@ -113,7 +121,7 @@ void node_parse(Node* node,char* input)
           }
           else if(*c == '\0')
           {
-            PyList_Append((PyObject*)node->instructions,(PyObject*)create_instruction(line));
+            append_instruction(node,create_instruction(line));
             break;
           }
           c++;
@@ -127,7 +135,7 @@ void node_parse(Node* node,char* input)
 
 
 
-int node_write(Node *n, Field* field) {
+int node_write(Node *n, Field* field,short value) {
   Node *dest;
   switch (field->address.direction) {
     case ACC:
@@ -142,7 +150,7 @@ int node_write(Node *n, Field* field) {
       dest = node_get_output_port(n,field->address.direction);
       if (dest && n->output_port == NULL) {
         n->output_port = dest;
-        n->output_value = field->address.number;
+        n->output_value = value;
         if (field->address.direction== ANY) n->last = dest;
       }
       return 1;
@@ -226,7 +234,8 @@ static int node_get_ip(Node* n,Field* field)
         Instruction *inst = (Instruction*)PyList_GetItem(n->instructions,i);
         if(inst->operation == JMP_FLAG)
         {
-          Field* f = get_field(inst,0);
+
+          Field* f = get_field(inst,0,NULL);
           if(strcmp(field->name.name,f->name.name) == 0)
           {
             return i;
@@ -244,26 +253,55 @@ static int node_get_ip(Node* n,Field* field)
 
 }
 
+void set_last_port(Node* node, LocationDirection direction)
+{
+  assert(direction <= 3);
+  node->last = node->ports[direction];
+}
+
+void set_output_port(Node* node,LocationDirection direction)
+{
+  assert(direction <= 3);
+  node->output_port = node->ports[direction];
+}
 
 void node_tick(Node *n) {
   n->blocked = TRUE;
 
   Instruction *i = (Instruction*)PyList_GetItem(n->instructions,n->ip);
+  if(i != NULL)
+  {
+
   short tmp;
   ReadResult read;
 
+  char* line = convert_instruction_str(i);
+  printf("%s\n",line );
+  free(line);
+
   int blocked;
+
+  Field* src;
+  Field* dest;
 
   switch (i->operation) {   
     case MOV:
+     ;
+     FieldType type;
+      src = get_field(i,0,&type);
+      if(type == NAME)
+        break;
+      dest = get_field(i,1,&type);
+      if(type == NAME)
+        break;
 
-      read = node_read(n,get_field(i,0));
+      read = node_read(n,src);
       if (read.blocked) return;
-      blocked = node_write(n,get_field(i,1) );
+      blocked = node_write(n,dest,read.value);
       if (blocked) return;
-      break;
+    break;
     case ADD:
-      read = node_read(n,get_field(i,0));
+      read = node_read(n,get_field(i,0,NULL));
       if (read.blocked) return;
 
       n->acc += read.value;
@@ -272,7 +310,7 @@ void node_tick(Node *n) {
       break;
     case SUB:
 
-      read  = node_read(n,get_field(i,0));
+      read  = node_read(n,get_field(i,0,NULL));
 
       if (read.blocked) return;
 
@@ -281,33 +319,33 @@ void node_tick(Node *n) {
       if (n->acc < MIN_ACC) n->acc = MIN_ACC;
       break;
     case JMP:
-      node_set_ip(n, node_get_ip(n,get_field(i,0)));
+      node_set_ip(n, node_get_ip(n,get_field(i,0,NULL)));
     break;
     case JRO:
-      read  = node_read(n,get_field(i,0));
+      read  = node_read(n,get_field(i,0,NULL));
       node_set_ip(n, n->ip + read.value);
     return;
     case JEZ:
       if (n->acc == 0) {
-        node_set_ip(n, node_get_ip(n,get_field(i,0)));
+        node_set_ip(n, node_get_ip(n,get_field(i,0,NULL)));
         return;
       }
       break;
     case JGZ:
       if (n->acc > 0) {
-        node_set_ip(n,node_get_ip(n,get_field(i,0)));
+        node_set_ip(n,node_get_ip(n,get_field(i,0,NULL)));
         return;
       }
       break;
     case JLZ:
       if (n->acc < 0) {
-        node_set_ip(n, node_get_ip(n,get_field(i,0)));
+        node_set_ip(n, node_get_ip(n,get_field(i,0,NULL)));
         return;
       }
       break;
     case JNZ:
       if (n->acc != 0) {
-        node_set_ip(n, node_get_ip(n,get_field(i,0)));
+        node_set_ip(n, node_get_ip(n,get_field(i,0,NULL)));
         return;
       }
       break;
@@ -333,6 +371,7 @@ void node_tick(Node *n) {
   }
   n->blocked = FALSE;
   node_advance(n);
+  }
 }
 
 void append_node(LocationDirection direction, Node* from, Node* to)

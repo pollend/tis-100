@@ -77,6 +77,5 @@ bool parse_line(Instruction* instruction, char* input);
 
 void create_fields(int number_fields,Instruction* inst);
 
-Field* get_field(Instruction* instruction,int index);
-FieldType* get_field_type(Instruction* instruction, int index);
+Field* get_field(Instruction* instruction,int index,FieldType* type);
 #endif
